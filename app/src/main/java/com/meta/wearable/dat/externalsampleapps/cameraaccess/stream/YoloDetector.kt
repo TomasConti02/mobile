@@ -37,9 +37,9 @@ class YoloDetector(private val context: Context, modelFilename: String = "yolov8
     private val inputSize = 640     // yolo need a 640x640 as input activation
     private val numClasses = 80
     private val numDetections = 8400 //yolo box
-    private val maxDetections = 5 //yolo max items detectable into a frame
-    private val confThreshold = 0.7f //for object detection i want a model enough source
-    private val iouThreshold = 0.5f
+    private val maxDetections = 10 // max yolo items into a frame
+    private val confThreshold = 0.65f //for object detection i want a model enough source
+    private val iouThreshold = 0.55f
     // --- VARIABILI AGGIUNTE PER RISOLVERE GLI ERRORI ---
     private var lastSaveTime: Long = 0
     private val saveInterval: Long = 3000 // 3 secondi tra un salvataggio e l'altro
@@ -77,7 +77,11 @@ class YoloDetector(private val context: Context, modelFilename: String = "yolov8
 
         try {
             // 2. Inferenza
+            val startTime = System.nanoTime()
             interp.run(tensorImage.buffer, outputBuffer)
+            val endTime = System.nanoTime()
+            val inferenceTimeMs = (endTime - startTime) / 1_000_000.0 // converti in millisecondi
+            Log.d("YoloDetector", "Tempo di inferenza: $inferenceTimeMs ms")
             // 3. Post-processing (Estrazione e NMS)
             val rawDetections = extractDetections(outputBuffer[0], imgW, imgH)
             val finalDetections = nonMaxSuppression(rawDetections)
@@ -164,7 +168,7 @@ class YoloDetector(private val context: Context, modelFilename: String = "yolov8
                 val realH = h * inputSize * scaleY
 
                 // 2. Filtra per dimensione minima (224x224)
-                if (realW >= 224f && realH >= 224f) {
+                if (realW >= 150f && realH >= 150f) {
 
                     val realX = cx * inputSize * scaleX
                     val realY = cy * inputSize * scaleY
