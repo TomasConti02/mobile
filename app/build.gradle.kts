@@ -55,10 +55,22 @@ android {
 }
 
 dependencies {
+  implementation("org.tensorflow:tensorflow-lite:2.14.0")
+  implementation("org.tensorflow:tensorflow-lite-gpu:2.14.0")
+  implementation("org.tensorflow:tensorflow-lite-gpu-api:2.14.0") // AGGIUNGI QUESTA
+  // Support library per ImageProcessor e TensorImage
+  implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
   // Usa un unico Group ID (org.tensorflow) per coerenza
-  implementation("org.tensorflow:tensorflow-lite:2.14.0") ///ADDED
-  implementation("org.tensorflow:tensorflow-lite-gpu:2.14.0") //ADDED
-  implementation("org.tensorflow:tensorflow-lite-support:0.4.4") ///ADDEDE
+  //implementation("org.tensorflow:tensorflow-lite:2.14.0") ///ADDED
+  //implementation("org.tensorflow:tensorflow-lite-gpu:2.14.0") //ADDED
+  //implementation("org.tensorflow:tensorflow-lite-support:0.4.4") ///ADDEDE
+  ///implementation("org.tensorflow:tensorflow-lite-api:2.14.0") //ADDED
+  /*
+  * implementation("org.tensorflow:tensorflow-lite:2.16.1")
+implementation("org.tensorflow:tensorflow-lite-gpu:2.16.1")
+implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
+* */
+  //implementation("com.quickbirdstudios:opencv-contrib:4.5.3.0") ///ADDEDE
 
 // RIMUOVI QUESTA RIGA (è un duplicato della precedente con il vecchio ID):
 // implementation("org.tensorflow.lite:tensorflow-lite-support:0.4.4")

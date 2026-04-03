@@ -54,19 +54,17 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers //ADDED
 import kotlinx.coroutines.channels.Channel//
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.consumeEach
 //StreamViewModel -> class. receive data from IoT device, stream the data stream and execute a sample YOLO object detection
 // this class keep inside the business logic of the wear able device
 class StreamViewModel( application: Application, private val wearablesViewModel: WearablesViewModel, ) : AndroidViewModel(application) {
   companion object {  private const val TAG = "StreamViewModel"
     private val INITIAL_STATE = StreamUiState()  }
-
   private val deviceSelector: DeviceSelector = wearablesViewModel.deviceSelector
   private var streamSession: StreamSession? = null //stream connection
-
   private val _uiState = MutableStateFlow(INITIAL_STATE)
   val uiState: StateFlow<StreamUiState> = _uiState.asStateFlow()
-
   private var videoJob: Job? = null
   private var stateJob: Job? = null
 
@@ -75,9 +73,9 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
   //ADDED
   private var yoloDetector: YoloDetector? = null //my new neural network for object detection
   private var frameCounter = 0 //frame skipping
-  private val FRAME_SKIP = 24  // for yolo
+  private val FRAME_SKIP = 48  // for yolo
   //CONFLATED mea
-  private lateinit var frameChannel: Channel<Bitmap>
+  private lateinit var frameChannel: Channel<Bitmap> //async queue channel for components communication
   //job della coroutine che gira su Dispatchers.Default e prende i frame dal frameChannel per passarli a YOLO.
   private var yoloJob: Job? = null
   fun startStream() {
@@ -89,20 +87,33 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
     presentationQueue?.stop()
     presentationQueue = null
     //ADDEDE
-    if (yoloDetector == null) {
-      yoloDetector = YoloDetector(getApplication()) // creation of the model
-    }
+    if (yoloDetector == null) { yoloDetector = YoloDetector(getApplication()) }
     frameCounter = 0
-    frameChannel = Channel(Channel.CONFLATED)
-
+    //CONFLATED non voglio troppo accordamento, se l'immagine arriva prima della fine dell'elaborazione sovrascrivi
+    frameChannel = Channel<Bitmap>(Channel.CONFLATED) //keep only last bitmap frame (good for buffer efficiency )
+    /*
+    viewModelScope.launch: Avvia un'operazione asincrona (Coroutine) legata alla vita del ViewModel. Se chiudi la schermata dell'app, questo processo si ferma automaticamente per non sprecare batteria.
+    Channel.CONFLATED aiuta ad impedire che il canale accodi frame che non rispettanoil timing dell'inferenza*/
+    /*
+    Dispatchers.Default: Indica al sistema di eseguire i calcoli su un thread dedicato alle operazioni pesanti per la CPU. È fondamentale per non bloccare l'interfaccia grafica (UI).*/
     yoloJob = viewModelScope.launch(Dispatchers.Default) {
+      /*for (bitmap in frameChannel): Questo ciclo è "sospensivo". Significa che non fa nulla finché nel frameChannel non arriva una nuova immagine. Non appena l'immagine arriva, entra nel ciclo e la elabora*/
       for (bitmap in frameChannel) {
         try {
+          if (!isActive) {
+            bitmap.recycle()
+            break
+          } // Se il job è cancellato, esci subito
+          val startTime = System.currentTimeMillis() // 1. Prendi il tempo iniziale
           val detections = yoloDetector?.detect(bitmap) ?: emptyList()
-          Log.d(TAG, "🎯 YOLO: ${detections.size} oggetti")
+          val endTime = System.currentTimeMillis() // 2. Prendi il tempo finale
+          val duration = endTime - startTime      // 3. Calcola la differenza
+          Log.d(TAG, "🎯 YOLO: ${detections.size} oggetti trovati in ${duration}ms")
+          bitmap.recycle()
         } catch (e: Exception) {
           Log.e(TAG, "Errore YOLO frame", e)
         }
+
       }
     }
     //this queue allow to collect the stream frame and execute the presentation is the right order based on the time stamp
@@ -141,14 +152,40 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
         } //stateJob end
     Log.d(TAG, "startStream: session created, videoJob e stateJob avviati")
   } //start stream end
+  fun stopStream() {
+    // Usiamo lo scope del ViewModel per gestire la sospensione
+    viewModelScope.launch {
 
+      // 1. Ferma la produzione di frame
+      videoJob?.cancelAndJoin()
+      videoJob = null
+
+      // 2. Chiudi il canale
+      if (::frameChannel.isInitialized) {
+        frameChannel.close()
+      }
+
+      // 3. Aspetta che YOLO finisca l'ultimo frame e faccia il recycle()
+      // Adesso 'cancelAndJoin' sarà riconosciuto perché siamo in un launch
+      yoloJob?.cancelAndJoin()
+      yoloJob = null
+
+      // 4. Chiudi il detector nativo in sicurezza
+      yoloDetector?.close()
+      yoloDetector = null
+
+      _uiState.update { INITIAL_STATE }
+    }
+  }
+  /*
   fun stopStream() {
     //Log.d(TAG, "stopStream: chiusura stream in corso")
-    videoJob?.cancel()
+    videoJob?.cancel() //stop new frames
     videoJob = null
+
     stateJob?.cancel()
     stateJob = null
-    presentationQueue?.stop()
+    presentationQueue?.stop() //attenzione alla pulizia di memoria bitmap, puntatori in queue magari sotto gestione di altri
     presentationQueue = null
     streamSession?.close()
     streamSession = null
@@ -163,7 +200,7 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
 
     _uiState.update { INITIAL_STATE }
   }
-
+*/
   fun capturePhoto() {
     if (uiState.value.isCapturing) {
       Log.d(TAG, "Photo capture already in progress, ignoring request")
@@ -295,18 +332,18 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
   }
   */
   private fun handleVideoFrame(videoFrame: VideoFrame) {
-    val bitmap = YuvToBitmapConverter.convert(
-      videoFrame.buffer,
-      videoFrame.width,
-      videoFrame.height
-    )
+    //data receive from the camera stream of the devices, convert the YUV formate into a bitmap more suitable
+    val bitmap = YuvToBitmapConverter.convert(videoFrame.buffer, videoFrame.width, videoFrame.height)
     if (bitmap != null) {
-      // 🔥 frame skipping intelligente
       if (frameCounter++ % FRAME_SKIP == 0) {
         if (::frameChannel.isInitialized && !frameChannel.isClosedForSend) {
-          frameChannel.trySend(bitmap)
+          //exec a copy for the race condition, copy overhead
+          val safeBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, false)
+          frameChannel.trySend(safeBitmap)
+          //frameChannel.trySend(bitmap) //asynch photo sending to the channel
         }
       }
+      //i send all the frame to the frames queue
       presentationQueue?.enqueue(bitmap, videoFrame.presentationTimeUs)
     } else {
       Log.e(TAG, "YUV -> Bitmap failed")
