@@ -19,7 +19,7 @@ import java.nio.channels.FileChannel
 import org.tensorflow.lite.gpu.CompatibilityList
 
 
-
+import org.opencv.android.OpenCVLoader
 ///
 import android.content.ContentValues
 import android.net.Uri
@@ -32,6 +32,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.cancel
+//import org.opencv.android.OpenCVLoader
 /*
   val modelBuffer = loadModelFile(context, modelFilename)
             val compatList = CompatibilityList()
@@ -98,7 +99,11 @@ class YoloDetector(private val context: Context, modelFilename: String = "yolov8
 
     init { //class inizializatorn
         try {
-
+            if (OpenCVLoader.initDebug()) {
+                Log.d("OpenCV", "Libreria caricata correttamente!")
+            } else {
+                Log.e("OpenCV", "Errore nel caricamento della libreria.")
+            }
             val modelBuffer = loadModelFile(context, modelFilename)
             val options = Interpreter.Options().apply { setNumThreads(4) } //threads for inference parallels execution, better thoughput
 

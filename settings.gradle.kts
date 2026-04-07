@@ -18,6 +18,7 @@ pluginManagement {
         includeGroupByRegex("com\\.android.*")
         includeGroupByRegex("com\\.google.*")
         includeGroupByRegex("androidx.*")
+
       }
     }
     mavenCentral()
@@ -51,3 +52,4 @@ dependencyResolutionManagement {
 rootProject.name = "CameraAccess"
 
 include(":app")
+include(":sdk")

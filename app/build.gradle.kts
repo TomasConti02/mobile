@@ -13,6 +13,23 @@ plugins {
 }
 
 android {
+  packaging {
+    resources {
+      excludes += "/META-INF/{AL2.0,LGPL2.1}"
+    }
+    // --- AGGIUNGI QUESTO BLOCCO QUI SOTTO PER IGNORARE I DUPLICATI ---
+    jniLibs {
+      pickFirsts += "**/libc++_shared.so"
+    }
+  }
+  compileOptions {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+  }
+
+  kotlinOptions {
+    jvmTarget = "18"
+  }
   namespace = "com.meta.wearable.dat.externalsampleapps.cameraaccess"
   compileSdk = 35
 
@@ -60,6 +77,7 @@ dependencies {
   implementation("org.tensorflow:tensorflow-lite-gpu-api:2.14.0") // AGGIUNGI QUESTA
   // Support library per ImageProcessor e TensorImage
   implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
+  implementation(project(":sdk"))
   // Usa un unico Group ID (org.tensorflow) per coerenza
   //implementation("org.tensorflow:tensorflow-lite:2.14.0") ///ADDED
   //implementation("org.tensorflow:tensorflow-lite-gpu:2.14.0") //ADDED

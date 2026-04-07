@@ -55,9 +55,11 @@ import kotlinx.coroutines.Dispatchers //ADDED
 import kotlinx.coroutines.channels.Channel//
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.cancelAndJoin
+import com.example.motion.MotionDetector
 import kotlinx.coroutines.channels.consumeEach
 //StreamViewModel -> class. receive data from IoT device, stream the data stream and execute a sample YOLO object detection
 // this class keep inside the business logic of the wear able device
+//  ffmpeg -i test1.mp4 -c:v libx265 -c:a aac -tag:v hvc1 -vf "scale=540:960" test_mobility1.mov
 class StreamViewModel( application: Application, private val wearablesViewModel: WearablesViewModel, ) : AndroidViewModel(application) {
   companion object {  private const val TAG = "StreamViewModel"
     private val INITIAL_STATE = StreamUiState()  }
@@ -73,11 +75,12 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
   //ADDED
   private var yoloDetector: YoloDetector? = null //my new neural network for object detection
   private var frameCounter = 0 //frame skipping
-  private val FRAME_SKIP = 48  // for yolo
+  private val FRAME_SKIP = 6
   //CONFLATED mea
   private lateinit var frameChannel: Channel<Bitmap> //async queue channel for components communication
   //job della coroutine che gira su Dispatchers.Default e prende i frame dal frameChannel per passarli a YOLO.
   private var yoloJob: Job? = null
+  private var motionDetector: MotionDetector? = null //////////////////////////////////////////////////////////////////////////////////////////
   fun startStream() {
     Log.d(TAG, "startStream: avvio stream con qualità MEDIUM, 24 fps")
     // cancel job Coroutine, background process
@@ -88,6 +91,7 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
     presentationQueue = null
     //ADDEDE
     if (yoloDetector == null) { yoloDetector = YoloDetector(getApplication()) }
+    if (motionDetector == null) { motionDetector = MotionDetector()  } ////////////////////////////////////////////////////////////////////////////
     frameCounter = 0
     //CONFLATED non voglio troppo accordamento, se l'immagine arriva prima della fine dell'elaborazione sovrascrivi
     frameChannel = Channel<Bitmap>(Channel.CONFLATED) //keep only last bitmap frame (good for buffer efficiency )
@@ -104,11 +108,18 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
             bitmap.recycle()
             break
           } // Se il job è cancellato, esci subito
+          //////////////////////////////////////////////////////////////////////////////////////////////////
+          /*
+          Here we have to use Monitor Detector in order to filter the image mobility
+          */
+          //////////////////////////////////////////////////////////////////////////////////////////////////
           val startTime = System.currentTimeMillis() // 1. Prendi il tempo iniziale
-          val detections = yoloDetector?.detect(bitmap) ?: emptyList()
+          //val detections = yoloDetector?.detect(bitmap) ?: emptyList()
+          val state=motionDetector?.analyze(bitmap)
           val endTime = System.currentTimeMillis() // 2. Prendi il tempo finale
           val duration = endTime - startTime      // 3. Calcola la differenza
-          Log.d(TAG, "🎯 YOLO: ${detections.size} oggetti trovati in ${duration}ms")
+          //Log.d(TAG, "🎯 YOLO: ${detections.size} oggetti trovati in ${duration}ms")
+          Log.d(TAG, "🎯 monitor detector stream state: ${state} into a timing -> ${duration}ms")
           bitmap.recycle()
         } catch (e: Exception) {
           Log.e(TAG, "Errore YOLO frame", e)
@@ -349,6 +360,21 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
       Log.e(TAG, "YUV -> Bitmap failed")
     }
   }
+  /*
+  val detector = MotionDetector()
+
+fun onNewFrame(bitmap: Bitmap) {
+    val state = detector.analyze(bitmap)
+
+    when (state) {
+        MotionDetector.State.MOVING -> {
+            // scena in movimento
+        }
+        MotionDetector.State.STILL -> {
+            // scena stabile
+        }
+    }
+}*/
   private fun handlePhotoData(photo: PhotoData) {
     val capturedPhoto =
         when (photo) {
