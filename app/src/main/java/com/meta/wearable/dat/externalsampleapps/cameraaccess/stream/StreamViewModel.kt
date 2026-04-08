@@ -76,10 +76,16 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
   private var yoloDetector: YoloDetector? = null //my new neural network for object detection
   private var frameCounter = 0 //frame skipping
   private val FRAME_SKIP = 6
+  private val FRAME_SKIP2 = 6
   //CONFLATED mea
   private lateinit var frameChannel: Channel<Bitmap> //async queue channel for components communication
   //job della coroutine che gira su Dispatchers.Default e prende i frame dal frameChannel per passarli a YOLO.
   private var yoloJob: Job? = null
+  private var isYoloRunning = false //NO yolo spam controller
+
+  private var lastState: MotionDetector.State? = null //execute yolo inference only one time after stable state
+  private var lastYoloTime = 0L
+  private val YOLO_INTERVAL_MS = 1500L
   private var motionDetector: MotionDetector? = null //////////////////////////////////////////////////////////////////////////////////////////
   fun startStream() {
     Log.d(TAG, "startStream: avvio stream con qualità MEDIUM, 24 fps")
@@ -113,18 +119,42 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
           Here we have to use Monitor Detector in order to filter the image mobility
           */
           //////////////////////////////////////////////////////////////////////////////////////////////////
+          /*
           val startTime = System.currentTimeMillis() // 1. Prendi il tempo iniziale
           //val detections = yoloDetector?.detect(bitmap) ?: emptyList()
           val state=motionDetector?.analyze(bitmap)
+          if ( state == MotionDetector.State.STABLE ) {
+
+            val startTime2 = System.currentTimeMillis()
+            val detections = yoloDetector?.detect(bitmap) ?: emptyList()
+            val endTime2 = System.currentTimeMillis()
+            val duration2 = endTime2 - startTime2
+            Log.d(TAG, "🎯 YOLO: ${detections.size} oggetti trovati in ${duration2}ms")
+
+          }
           val endTime = System.currentTimeMillis() // 2. Prendi il tempo finale
           val duration = endTime - startTime      // 3. Calcola la differenza
           //Log.d(TAG, "🎯 YOLO: ${detections.size} oggetti trovati in ${duration}ms")
-          Log.d(TAG, "🎯 monitor detector stream state: ${state} into a timing -> ${duration}ms")
+          Log.d(TAG, " monitor detector stream state: ${state} into a timing -> ${duration}ms")
+          bitmap.recycle()
+          */
+          val start = System.currentTimeMillis()
+          val state = motionDetector?.analyze(bitmap)
+          val duration = System.currentTimeMillis() - start
+          Log.d(TAG, "Monitor detector : ${state} in ${duration}ms")
+          val now = System.currentTimeMillis()
+          val justBecameStable =
+            state == MotionDetector.State.STABLE && lastState == MotionDetector.State.MOVING
+          val timeOk = now - lastYoloTime > YOLO_INTERVAL_MS
+          if (state == MotionDetector.State.STABLE && (justBecameStable || timeOk)) {
+            lastYoloTime = now
+            triggerYolo(bitmap)
+          }
+          lastState = state
           bitmap.recycle()
         } catch (e: Exception) {
           Log.e(TAG, "Errore YOLO frame", e)
         }
-
       }
     }
     //this queue allow to collect the stream frame and execute the presentation is the right order based on the time stamp
@@ -163,6 +193,42 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
         } //stateJob end
     Log.d(TAG, "startStream: session created, videoJob e stateJob avviati")
   } //start stream end
+  private fun triggerYolo(bitmap: Bitmap) {
+    if (!isYoloRunning) {
+        val yoloBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, false)
+        isYoloRunning = true //stop other yolo spam detection
+        viewModelScope.launch(Dispatchers.Default) {
+          val start = System.currentTimeMillis()
+          val detections = yoloDetector?.detect(yoloBitmap) ?: emptyList()
+          val duration = System.currentTimeMillis() - start
+          Log.d(TAG, "🎯 YOLO: ${detections.size} in ${duration}ms")
+          yoloBitmap.recycle()
+          isYoloRunning = false //reactivate yolo detection
+      }
+    }
+  }
+
+  private fun handleVideoFrame(videoFrame: VideoFrame) {
+    //data receive from the camera stream of the devices, convert the YUV formate into a bitmap more suitable
+    val bitmap = YuvToBitmapConverter.convert(videoFrame.buffer, videoFrame.width, videoFrame.height)
+    if (bitmap != null) {
+      if (frameCounter++ % FRAME_SKIP == 0) {
+        if (::frameChannel.isInitialized && !frameChannel.isClosedForSend) {
+          //exec a copy for the race condition, copy overhead
+          val safeBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, false)
+          frameChannel.trySend(safeBitmap)
+          //frameChannel.trySend(bitmap) //asynch photo sending to the channel
+        }
+      }
+      //i send all the frame to the frames queue
+      presentationQueue?.enqueue(bitmap, videoFrame.presentationTimeUs)
+    } else {
+      Log.e(TAG, "YUV -> Bitmap failed")
+    }
+  }
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   fun stopStream() {
     // Usiamo lo scope del ViewModel per gestire la sospensione
     viewModelScope.launch {
@@ -224,21 +290,21 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
 
       viewModelScope.launch {
         streamSession
-            ?.capturePhoto()
-            ?.onSuccess { photoData ->
-              Log.d(TAG, "Photo capture successful")
-              handlePhotoData(photoData)
-              _uiState.update { it.copy(isCapturing = false) }
-            }
-            ?.onFailure { error, _ ->
-              Log.e(TAG, "Photo capture failed: ${error.description}")
-              _uiState.update { it.copy(isCapturing = false) }
-            }
+          ?.capturePhoto()
+          ?.onSuccess { photoData ->
+            Log.d(TAG, "Photo capture successful")
+            handlePhotoData(photoData)
+            _uiState.update { it.copy(isCapturing = false) }
+          }
+          ?.onFailure { error, _ ->
+            Log.e(TAG, "Photo capture failed: ${error.description}")
+            _uiState.update { it.copy(isCapturing = false) }
+          }
       }
     } else {
       Log.w(
-          TAG,
-          "Cannot capture photo: stream not active (state=${uiState.value.streamSessionState})",
+        TAG,
+        "Cannot capture photo: stream not active (state=${uiState.value.streamSessionState})",
       )
     }
   }
@@ -275,6 +341,21 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
       Log.e("StreamViewModel", "Failed to share photo", e)
     }
   }
+  /*
+  val detector = MotionDetector()
+
+fun onNewFrame(bitmap: Bitmap) {
+    val state = detector.analyze(bitmap)
+
+    when (state) {
+        MotionDetector.State.MOVING -> {
+            // scena in movimento
+        }
+        MotionDetector.State.STILL -> {
+            // scena stabile
+        }
+    }
+}*/
 
   // QUI DENTRO METTIAMO UNA RETE neurale YOLO che elabora in stream il video
   // riduzione dei frame, uno ogni tre da parte della network
@@ -342,39 +423,6 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
     }
   }
   */
-  private fun handleVideoFrame(videoFrame: VideoFrame) {
-    //data receive from the camera stream of the devices, convert the YUV formate into a bitmap more suitable
-    val bitmap = YuvToBitmapConverter.convert(videoFrame.buffer, videoFrame.width, videoFrame.height)
-    if (bitmap != null) {
-      if (frameCounter++ % FRAME_SKIP == 0) {
-        if (::frameChannel.isInitialized && !frameChannel.isClosedForSend) {
-          //exec a copy for the race condition, copy overhead
-          val safeBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, false)
-          frameChannel.trySend(safeBitmap)
-          //frameChannel.trySend(bitmap) //asynch photo sending to the channel
-        }
-      }
-      //i send all the frame to the frames queue
-      presentationQueue?.enqueue(bitmap, videoFrame.presentationTimeUs)
-    } else {
-      Log.e(TAG, "YUV -> Bitmap failed")
-    }
-  }
-  /*
-  val detector = MotionDetector()
-
-fun onNewFrame(bitmap: Bitmap) {
-    val state = detector.analyze(bitmap)
-
-    when (state) {
-        MotionDetector.State.MOVING -> {
-            // scena in movimento
-        }
-        MotionDetector.State.STILL -> {
-            // scena stabile
-        }
-    }
-}*/
   private fun handlePhotoData(photo: PhotoData) {
     val capturedPhoto =
         when (photo) {
