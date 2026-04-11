@@ -32,31 +32,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.cancel
-//import org.opencv.android.OpenCVLoader
-/*
-  val modelBuffer = loadModelFile(context, modelFilename)
-            val compatList = CompatibilityList()
-
-            val options = Interpreter.Options()
-
-            if (compatList.isDelegateSupportedOnThisDevice) {
-                val delegateOptions = compatList.bestOptionsForThisDevice
-                gpuDelegate = GpuDelegate(delegateOptions)
-                options.addDelegate(gpuDelegate)
-                Log.d(TAG, "✅ GPU attiva")
-            } else {
-                options.setNumThreads(4)
-                Log.d(TAG, "⚠️ GPU non supportata → uso CPU")
-            }
-
-            interpreter = Interpreter(modelBuffer, options)
-            interpreter?.allocateTensors()
-
-            val inputTensor = interpreter?.getInputTensor(0)
-            Log.d(TAG, "Input shape: ${inputTensor?.shape()?.contentToString()}")
-            Log.d(TAG, "Input dtype: ${inputTensor?.dataType()}")
-
-*/
 /////
 //yolo predict model=yolov8n_saved_model/yolov8n_int8.tflite source=0 imgsz=640 int8 ////////////inference model test
 //yolo export model=yolov8n.pt format=tflite int8 /////////////exporting command

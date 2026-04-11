@@ -42,9 +42,7 @@ class MainActivity : ComponentActivity() {
     // Required Android permissions for the DAT SDK to function properly
     val PERMISSIONS: Array<String> = arrayOf(BLUETOOTH, BLUETOOTH_CONNECT, INTERNET)
   }
-
   val viewModel: WearablesViewModel by viewModels()
-
   private val permissionCheckLauncher =
       registerForActivityResult(RequestMultiplePermissions()) { permissionsResult ->
         viewModel.onPermissionsResult(permissionsResult) {
