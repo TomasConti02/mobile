@@ -12,11 +12,13 @@
 
 package com.meta.wearable.dat.externalsampleapps.cameraaccess.wearables
 
-import com.meta.wearable.dat.core.types.DeviceIdentifier
-import com.meta.wearable.dat.core.types.RegistrationState
+import com.meta.wearable.dat.core.types.DeviceIdentifier //sdk
+import com.meta.wearable.dat.core.types.RegistrationState //sdk
+
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
+//all the possible information about the wearable devices state updated by the WearablesViewModel
 data class WearablesUiState(
     val registrationState: RegistrationState = RegistrationState.Unavailable(),
     val devices: ImmutableList<DeviceIdentifier> = persistentListOf(),
@@ -27,9 +29,6 @@ data class WearablesUiState(
     val isGettingStartedSheetVisible: Boolean = false,
     val hasActiveDevice: Boolean = false,
     val canRegister: Boolean = false,
-) {
-  val isRegistered: Boolean =
-      registrationState is RegistrationState.Registered ||
-          registrationState is RegistrationState.Unregistering ||
-          hasMockDevices
+    ) { // if there are mock device connected hasMockDevices became true, and so isRegistered!!!!!!!!!!!!!!!!
+  val isRegistered: Boolean =  registrationState is RegistrationState.Registered ||  registrationState is RegistrationState.Unregistering ||  hasMockDevices
 }

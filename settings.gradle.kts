@@ -28,6 +28,7 @@ pluginManagement {
 
 val localProperties =
     Properties().apply {
+      //looking for the request to the sdk
       val localPropertiesPath = rootDir.toPath() / "local.properties"
       if (localPropertiesPath.exists()) {
         load(localPropertiesPath.inputStream())
@@ -39,7 +40,7 @@ dependencyResolutionManagement {
   repositories {
     google()
     mavenCentral()
-    maven {
+    maven { //url for the github token access
       url = uri("https://maven.pkg.github.com/facebook/meta-wearables-dat-android")
       credentials {
         username = "" // not needed
@@ -51,5 +52,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "CameraAccess"
 
-include(":app")
-include(":sdk")
+include(":app") //application
+include(":sdk") //open cv sdk

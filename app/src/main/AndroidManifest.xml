@@ -1,11 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
-
+    <!-- Runtime permissions used by DAT, sdk for the connection with the devices  -->
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.INTERNET" />
-
     <application
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
@@ -25,10 +24,11 @@
             android:screenOrientation="portrait"
             android:theme="@style/Theme.CameraAccess">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN" /><!-- activity application point of ingress -->
+                <category android:name="android.intent.category.LAUNCHER" /><!-- launcher GUI icon is this   -->
             </intent-filter>
             <intent-filter>
+                <!-- Callback scheme Meta AI uses to return to your app -->
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <category android:name="android.intent.category.DEFAULT" />

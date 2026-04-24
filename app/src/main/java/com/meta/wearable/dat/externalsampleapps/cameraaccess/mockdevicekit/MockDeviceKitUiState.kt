@@ -21,7 +21,7 @@
 
 package com.meta.wearable.dat.externalsampleapps.cameraaccess.mockdevicekit
 
-import com.meta.wearable.dat.mockdevice.api.MockRaybanMeta
+import com.meta.wearable.dat.mockdevice.api.MockRaybanMeta //sdk
 
 // class of the mock device list.
 data class MockDeviceInfo(
@@ -32,6 +32,6 @@ data class MockDeviceInfo(
     val hasCapturedImage: Boolean = false,
 )
 
-data class MockDeviceKitUiState(
+data class MockDeviceKitUiState( //a list of mock devices
     val pairedDevices: List<MockDeviceInfo> = emptyList(),
 )

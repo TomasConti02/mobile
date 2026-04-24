@@ -44,12 +44,9 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.R
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.wearables.WearablesViewModel
-
+//Single-Activity e il framework Jetpack Compose.
 @Composable
-fun HomeScreen(
-    viewModel: WearablesViewModel,
-    modifier: Modifier = Modifier,
-) {
+fun HomeScreen( viewModel: WearablesViewModel, modifier: Modifier = Modifier, ) {
   val scrollState = rememberScrollState()
   val uiState by viewModel.uiState.collectAsStateWithLifecycle()
   val activity = LocalActivity.current
@@ -110,12 +107,10 @@ fun HomeScreen(
           modifier = Modifier.padding(horizontal = 24.dp),
       )
       SwitchButton(
-          label = stringResource(R.string.register_button_title),
+          //start the registration of the devices
+          label = stringResource(R.string.register_button_title), //start the device connectivity
           enabled = uiState.canRegister,
-          onClick = {
-            activity?.let { viewModel.startRegistration(it) }
-                ?: Toast.makeText(context, "Activity not available", Toast.LENGTH_SHORT).show()
-          },
+          onClick = { activity?.let { viewModel.startRegistration(it) } ?: Toast.makeText(context, "Activity not available", Toast.LENGTH_SHORT).show() },
       )
     }
   }

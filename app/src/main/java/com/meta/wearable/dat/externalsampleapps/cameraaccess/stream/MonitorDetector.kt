@@ -27,9 +27,7 @@ class MotionDetector(
 
     private var frameCount = 0
     private var currentState = State.STILL
-
     private var stillStartTime: Long = 0L
-
     fun analyze(bitmap: Bitmap): State {
         Utils.bitmapToMat(bitmap, currMat) //convert the bitmap into a opencv pixel matrix
         Imgproc.cvtColor(currMat, grayMat, Imgproc.COLOR_BGR2GRAY) //convert the RGB matrix into a gray (less pixel, easy to execute)

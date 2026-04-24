@@ -44,21 +44,19 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.meta.wearable.dat.externalsampleapps.cameraaccess.R
-import com.meta.wearable.dat.externalsampleapps.cameraaccess.mockdevicekit.MockDeviceInfo
-import com.meta.wearable.dat.externalsampleapps.cameraaccess.mockdevicekit.MockDeviceKitViewModel
-import android.util.Log
-@Composable
-fun MockDeviceKitScreen(
-    modifier: Modifier = Modifier,
-    viewModel: MockDeviceKitViewModel = viewModel(LocalActivity.current as ComponentActivity),
-) {
-  val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-  Column(
-      modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-      verticalArrangement = Arrangement.spacedBy(12.dp),
-  ) {
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.R //sdk
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.mockdevicekit.MockDeviceInfo //sdk
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.mockdevicekit.MockDeviceKitViewModel //sdk
+//this view model does not respond any more to WearablesViewModel and his UIstate, but instead
+// MockDeviceKitViewModel the UIstatemock and MockDeviceKit personal api entry
+import android.util.Log
+@Composable //the view model that manage this page is the mock-one
+fun MockDeviceKitScreen( modifier: Modifier = Modifier,  viewModel: MockDeviceKitViewModel = viewModel(LocalActivity.current as ComponentActivity),
+) { //viewModel -> MockDeviceKitViewModel
+    //all the screen change the uistate mock
+  val uiState by viewModel.uiState.collectAsStateWithLifecycle() //read only
+  Column( modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),  verticalArrangement = Arrangement.spacedBy(12.dp),) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -88,20 +86,17 @@ fun MockDeviceKitScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         HorizontalDivider()
-
         ActionButton(
             modifier = Modifier.fillMaxWidth(),
             text = stringResource(R.string.pair_rayban_meta),
-            onClick = { viewModel.pairRaybanMeta() },
+            onClick = { viewModel.pairRaybanMeta() },  //pair mock device, allow the creation actually
             enabled = uiState.pairedDevices.size < 3,
         )
       }
     }
 
     if (uiState.pairedDevices.isNotEmpty()) {
-      uiState.pairedDevices.forEach { deviceInfo ->
-        MockDeviceCard(deviceInfo = deviceInfo, viewModel = viewModel)
-      }
+      uiState.pairedDevices.forEach { deviceInfo -> MockDeviceCard(deviceInfo = deviceInfo, viewModel = viewModel) }
     }
   }
 }
@@ -146,10 +141,7 @@ private fun StatusText(
 }
 
 @Composable
-private fun MockDeviceCard(
-    deviceInfo: MockDeviceInfo,
-    viewModel: MockDeviceKitViewModel,
-) {
+private fun MockDeviceCard(deviceInfo: MockDeviceInfo, viewModel: MockDeviceKitViewModel, ) {
   val videoPickerLauncher =
       rememberLauncherForActivityResult(contract = ActivityResultContracts.GetContent()) { uri: Uri?
         ->

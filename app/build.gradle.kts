@@ -75,6 +75,8 @@ dependencies {
   implementation("org.tensorflow:tensorflow-lite:2.14.0")
   implementation("org.tensorflow:tensorflow-lite-gpu:2.14.0")
   implementation("org.tensorflow:tensorflow-lite-gpu-api:2.14.0") // AGGIUNGI QUESTA
+  implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+ // implementation("com.google.ai.edge.litert:litert:2.1.0")
   // Support library per ImageProcessor e TensorImage
   implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
   implementation(project(":sdk"))
@@ -101,9 +103,11 @@ implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
   implementation(libs.androidx.material.icons.extended)
   implementation(libs.androidx.material3)
   implementation(libs.kotlinx.collections.immutable)
+
   implementation(libs.mwdat.core)
   implementation(libs.mwdat.camera)
   implementation(libs.mwdat.mockdevice)
+
   androidTestImplementation(libs.androidx.ui.test.junit4)
   androidTestImplementation(libs.androidx.test.uiautomator)
   androidTestImplementation(libs.androidx.test.rules)

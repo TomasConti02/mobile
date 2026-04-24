@@ -14,80 +14,70 @@
 // - Handle device permissions (Bluetooth, Internet)
 // - Request camera permissions from wearable devices (Ray-Ban Meta glasses)
 // - Stream video and capture photos from connected wearable devices
-
 package com.meta.wearable.dat.externalsampleapps.cameraaccess
-
 import android.Manifest.permission.BLUETOOTH
 import android.Manifest.permission.BLUETOOTH_CONNECT
 import android.Manifest.permission.INTERNET
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import androidx.activity.ComponentActivity //android activity for user screen interaction changes
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions
 import androidx.activity.viewModels
-import com.meta.wearable.dat.core.Wearables
-import com.meta.wearable.dat.core.types.Permission
-import com.meta.wearable.dat.core.types.PermissionStatus
+import androidx.lifecycle.ViewModel
+
+import com.meta.wearable.dat.core.Wearables //sdk
+import com.meta.wearable.dat.core.types.Permission //sdk
+import com.meta.wearable.dat.core.types.PermissionStatus //sdk
+
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.ui.CameraAccessScaffold
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.wearables.WearablesViewModel
+
 import kotlin.coroutines.resume
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-
-class MainActivity : ComponentActivity() {
+// https://wearables.developer.meta.com/docs/reference/android/dat/0.4/com_meta_wearable_dat_core_wearables
+// https://wearables.developer.meta.com/docs/reference/android/dat/0.4
+class MainActivity : ComponentActivity() { //one activity, the main
   companion object {
-    // Required Android permissions for the DAT SDK to function properly
-    val PERMISSIONS: Array<String> = arrayOf(BLUETOOTH, BLUETOOTH_CONNECT, INTERNET)
+    val PERMISSIONS: Array<String> = arrayOf(BLUETOOTH, BLUETOOTH_CONNECT, INTERNET)//basic permissions
   }
-  val viewModel: WearablesViewModel by viewModels()
-  private val permissionCheckLauncher =
-      registerForActivityResult(RequestMultiplePermissions()) { permissionsResult ->
-        viewModel.onPermissionsResult(permissionsResult) {
-          // Initialize the DAT SDK once the permissions are granted
-          // This is REQUIRED before using any Wearables APIs
-          Wearables.initialize(this)
+  val viewModel: WearablesViewModel by viewModels() //declare the WearablesViewModel with -> by -> jetpack-property delegation
+  private val permissionCheckLauncher = registerForActivityResult(RequestMultiplePermissions()) { permissionsResult -> //check about the basic permissions
+        viewModel.onPermissionsResult(permissionsResult) {  //viewModel exec a double permission check
+          Wearables.initialize(this) // Initialize the SDK
         }
       }
-
   private var permissionContinuation: CancellableContinuation<PermissionStatus>? = null
   private val permissionMutex = Mutex()
-  // Requesting wearable device permissions via the Meta AI app
-  private val permissionsResultLauncher =
-      registerForActivityResult(Wearables.RequestPermissionContract()) { result ->
+    // Requesting wearable device permissions via the Meta AI app
+  private val permissionsResultLauncher = registerForActivityResult(Wearables.RequestPermissionContract()) { result ->
         val permissionStatus = result.getOrDefault(PermissionStatus.Denied)
         permissionContinuation?.resume(permissionStatus)
         permissionContinuation = null
       }
-
   // Convenience method to make a permission request in a sequential manner
-  // Uses a Mutex to ensure requests are processed one at a time, preventing race conditions
+// Uses a Mutex to ensure requests are processed one at a time, preventing race conditions
   suspend fun requestWearablesPermission(permission: Permission): PermissionStatus {
-    return permissionMutex.withLock {
-      suspendCancellableCoroutine { continuation ->
-        permissionContinuation = continuation
-        continuation.invokeOnCancellation { permissionContinuation = null }
-        permissionsResultLauncher.launch(permission)
+    return permissionMutex.withLock { //atomicity execution, serializable and not thread concurrency, only one process at time execute requestWearablesPermission
+        suspendCancellableCoroutine { continuation -> permissionContinuation = continuation //saving the corrent state, saving the corouting reference
+        continuation.invokeOnCancellation { permissionContinuation = null } //if the coruting wait is interrupt not panic and empty the permissionContinuation
+        permissionsResultLauncher.launch(permission) //open the meta AI app interface over my screen
       }
     }
   }
 
+//executed on application creation
   override fun onCreate(savedInstanceState: Bundle?) {
-    super.onCreate(savedInstanceState)
-    enableEdgeToEdge()
-    setContent {
-      CameraAccessScaffold(
-          viewModel = viewModel,
-          onRequestWearablesPermission = ::requestWearablesPermission,
-      )
-    }
+    super.onCreate(savedInstanceState) //set the standard android conf
+    enableEdgeToEdge()//view option, cover all the screen
+    setContent {  CameraAccessScaffold(viewModel = viewModel, onRequestWearablesPermission = ::requestWearablesPermission,) } //set he UI Scaffold passing the WearablesViewModel
   }
-
-  override fun onStart() {
+  //executed on application start
+  override fun onStart() { //on start check internet and bluetooth permissions
     super.onStart()
-    // First, ensure the app has necessary Android permissions
-    permissionCheckLauncher.launch(PERMISSIONS)
+    permissionCheckLauncher.launch(PERMISSIONS)//at every start check the basic permission if they are still available
   }
 }

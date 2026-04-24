@@ -22,4 +22,10 @@ data class StreamUiState(
     val capturedPhoto: Bitmap? = null,
     val isShareDialogVisible: Boolean = false,
     val isCapturing: Boolean = false,
+    /*
+    In the future i have to add to this ui:
+    - motionState
+    - detectedObject
+    - detectedObject box
+     */
 )

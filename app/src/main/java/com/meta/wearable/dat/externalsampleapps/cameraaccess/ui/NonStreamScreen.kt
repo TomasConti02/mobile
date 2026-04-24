@@ -168,7 +168,7 @@ fun NonStreamScreen(
         // Start Streaming Button
         SwitchButton(
             label = stringResource(R.string.stream_button_title),
-            onClick = { viewModel.navigateToStreaming(onRequestWearablesPermission) },
+            onClick = { viewModel.navigateToStreaming(onRequestWearablesPermission) }, //asking for a streaming session
             enabled = uiState.hasActiveDevice,
         )
       }

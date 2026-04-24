@@ -54,22 +54,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.meta.wearable.dat.core.types.Permission
-import com.meta.wearable.dat.core.types.PermissionStatus
+
+import com.meta.wearable.dat.core.types.Permission //sdk
+import com.meta.wearable.dat.core.types.PermissionStatus //sdk
+
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.BuildConfig
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.wearables.WearablesViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun CameraAccessScaffold(
-    viewModel: WearablesViewModel,
-    onRequestWearablesPermission: suspend (Permission) -> PermissionStatus,
-    modifier: Modifier = Modifier,
-) {
-  val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+//scaffold call CameraAccessScaffold it is the principal UI component, manage the navigation
+//based on the wearable device state show up different ui
+@OptIn(ExperimentalMaterial3Api::class) //  Interfaccia=f(Stato)
+@Composable //  the principal component for manage the view, execute as a router, based con state change the view
+fun CameraAccessScaffold( viewModel: WearablesViewModel, onRequestWearablesPermission: suspend (Permission) -> PermissionStatus, modifier: Modifier = Modifier, ) {
+    //track the uistate of the device in real time to orchestrete the application
+  val uiState by viewModel.uiState.collectAsStateWithLifecycle() //get the read only camera uistate of weareable
   val snackbarHostState = remember { SnackbarHostState() }
   val bottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
+    //  WearablesViewModel keep the state of the system
   // Observe recent errors and show snackbar
   LaunchedEffect(uiState.recentError) {
     uiState.recentError?.let { errorMessage ->
@@ -77,26 +78,18 @@ fun CameraAccessScaffold(
       viewModel.clearRecentError()
     }
   }
-
+    //
   Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
     Box(modifier = Modifier.fillMaxSize()) {
-      when {
-        uiState.isStreaming ->
-            StreamScreen(
-                wearablesViewModel = viewModel,
-            )
-        uiState.isRegistered ->
-            NonStreamScreen(
-                viewModel = viewModel,
-                onRequestWearablesPermission = onRequestWearablesPermission,
-            )
+      when { //here start the logic based on state
+          //the streaming is started and so start StreamScreen, passing the wearable camera device class wearablesViewModel
+        uiState.isStreaming -> StreamScreen( wearablesViewModel = viewModel,) //if the state is in streaming show up the stream screen
+          //chose the waerable device, after the pair operation the uistate is registered and NonStreamScreen show up
+        uiState.isRegistered -> NonStreamScreen( viewModel = viewModel, onRequestWearablesPermission = onRequestWearablesPermission,)
         else ->
-            HomeScreen(
-                viewModel = viewModel,
-            )
+            HomeScreen(viewModel = viewModel,) // if there is no device registered and no stream showup the home
       }
-
-      SnackbarHost(
+      SnackbarHost( //manage the error example lost of internet of bluetooth ..
           hostState = snackbarHostState,
           modifier =
               Modifier.align(Alignment.BottomCenter)
@@ -120,24 +113,18 @@ fun CameraAccessScaffold(
             }
           },
       )
-
-      if (BuildConfig.DEBUG) {
-        FloatingActionButton(
-            onClick = { viewModel.showDebugMenu() },
-            modifier = Modifier.align(Alignment.CenterEnd),
-        ) {
-          Icon(Icons.Default.BugReport, contentDescription = "Debug Menu")
-        }
-
-        if (uiState.isDebugMenuVisible) {
-          ModalBottomSheet(
-              onDismissRequest = { viewModel.hideDebugMenu() },
+        //Mock devive is on???
+      if (BuildConfig.DEBUG) { //if we are in to the debug mode (according to the conf), show up the debug item
+          //start application view model
+        FloatingActionButton( onClick = {
+            viewModel.showDebugMenu() }, //allow the model to set the ui state model right
+            modifier = Modifier.align(Alignment.CenterEnd),) {  Icon(Icons.Default.BugReport, contentDescription = "Debug Menu")  }
+        if (uiState.isDebugMenuVisible) { //the click change the viewmodel state and open MockDeviceKitScreen
+          ModalBottomSheet( onDismissRequest = { viewModel.hideDebugMenu() },
               sheetState = bottomSheetState,
-              modifier = Modifier.fillMaxSize(),
-          ) {
-            MockDeviceKitScreen(modifier = Modifier.fillMaxSize())
-          }
-        }
+              //MockDeviceKitScreen manage MockDeviceKitViewModel and no more the classic view model WearablesViewModel
+              modifier = Modifier.fillMaxSize(),) {  MockDeviceKitScreen(modifier = Modifier.fillMaxSize())  }
+        }//end if
       }
     }
   }

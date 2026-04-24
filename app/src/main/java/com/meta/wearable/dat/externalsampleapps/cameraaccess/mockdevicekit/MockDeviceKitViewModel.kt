@@ -18,8 +18,10 @@ import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.meta.wearable.dat.mockdevice.MockDeviceKit
-import com.meta.wearable.dat.mockdevice.api.MockRaybanMeta
+
+import com.meta.wearable.dat.mockdevice.MockDeviceKit //sdk
+import com.meta.wearable.dat.mockdevice.api.MockRaybanMeta //sdk for the mock device
+
 import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,32 +30,24 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class MockDeviceKitViewModel(application: Application) : AndroidViewModel(application) {
-
+//this class implement all the function/operation into mockdevicekitscreen
   companion object {
     private const val TAG = "MockDeviceKitViewModel"
   }
-
-  private val mockDeviceKit = MockDeviceKit.getInstance(application.applicationContext)
-
-  private val _uiState = MutableStateFlow(MockDeviceKitUiState())
-  val uiState: StateFlow<MockDeviceKitUiState> = _uiState.asStateFlow()
-
+  private val mockDeviceKit = MockDeviceKit.getInstance(application.applicationContext)//mock device kit instance
+  private val _uiState = MutableStateFlow(MockDeviceKitUiState()) //obtain the read write uistate reference
+  val uiState: StateFlow<MockDeviceKitUiState> = _uiState.asStateFlow() //take the ui
   // Create a simulated Ray-Ban Meta glasses device
-  fun pairRaybanMeta() {
+  fun pairRaybanMeta() { //activated by the MockDeviceKitScreen with the pair rayban meta button
     viewModelScope.launch {
       try {
         Log.d(TAG, "Pairing RayBan Meta device")
-        val mockDevice = mockDeviceKit.pairRaybanMeta()
+        //pair a new device trigger WearablesViewModel locking for the device collection active.
+        // look if there are some mock device by MockDeviceKit.getInstance and change the view with stream modality
+        val mockDevice = mockDeviceKit.pairRaybanMeta() //pair device mock
         val deviceName = "RayBan Meta Glasses"
-        val deviceInfo =
-            MockDeviceInfo(
-                device = mockDevice,
-                deviceId = UUID.randomUUID().toString(),
-                deviceName = deviceName,
-            )
-        _uiState.update { currentState ->
-          currentState.copy(pairedDevices = currentState.pairedDevices + deviceInfo)
-        }
+        val deviceInfo = MockDeviceInfo(device = mockDevice, deviceId = UUID.randomUUID().toString(), deviceName = deviceName,)
+        _uiState.update { currentState -> currentState.copy(pairedDevices = currentState.pairedDevices + deviceInfo) }
         Log.d(TAG, "Successfully paired RayBan Meta device: ${deviceInfo.deviceId}")
       } catch (e: Exception) {
         Log.e(TAG, "Failed to pair RayBan Meta device", e)
@@ -65,10 +59,8 @@ class MockDeviceKitViewModel(application: Application) : AndroidViewModel(applic
     viewModelScope.launch {
       try {
         Log.d(TAG, "Unpairing device with ID: ${deviceInfo.deviceId}")
-        mockDeviceKit.unpairDevice(deviceInfo.device)
-        _uiState.update { currentState ->
-          currentState.copy(pairedDevices = currentState.pairedDevices - deviceInfo)
-        }
+        mockDeviceKit.unpairDevice(deviceInfo.device) //un pair device mock
+        _uiState.update { currentState -> currentState.copy(pairedDevices = currentState.pairedDevices - deviceInfo) }
         Log.d(TAG, "Successfully unpaired device: ${deviceInfo.deviceId}")
       } catch (e: Exception) {
         Log.e(TAG, "Failed to unpair device with ID: ${deviceInfo.deviceId}", e)
