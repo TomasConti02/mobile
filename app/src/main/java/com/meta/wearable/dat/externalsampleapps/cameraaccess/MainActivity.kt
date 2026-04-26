@@ -19,16 +19,18 @@ import android.Manifest.permission.BLUETOOTH
 import android.Manifest.permission.BLUETOOTH_CONNECT
 import android.Manifest.permission.INTERNET
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity //android activity for user screen interaction changes
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions
 import androidx.activity.viewModels
 import androidx.lifecycle.ViewModel
-
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.stream.YoloProvider
 import com.meta.wearable.dat.core.Wearables //sdk
 import com.meta.wearable.dat.core.types.Permission //sdk
 import com.meta.wearable.dat.core.types.PermissionStatus //sdk
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.stream.YoloDetector
 
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.ui.CameraAccessScaffold
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.wearables.WearablesViewModel
@@ -38,12 +40,17 @@ import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import androidx.lifecycle.lifecycleScope
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.stream.StreamViewModel
+import kotlinx.coroutines.launch
 // https://wearables.developer.meta.com/docs/reference/android/dat/0.4/com_meta_wearable_dat_core_wearables
 // https://wearables.developer.meta.com/docs/reference/android/dat/0.4
 class MainActivity : ComponentActivity() { //one activity, the main
+
   companion object {
     val PERMISSIONS: Array<String> = arrayOf(BLUETOOTH, BLUETOOTH_CONNECT, INTERNET)//basic permissions
   }
+    private val TAG = "MAIN"
   val viewModel: WearablesViewModel by viewModels() //declare the WearablesViewModel with -> by -> jetpack-property delegation
   private val permissionCheckLauncher = registerForActivityResult(RequestMultiplePermissions()) { permissionsResult -> //check about the basic permissions
         viewModel.onPermissionsResult(permissionsResult) {  //viewModel exec a double permission check
@@ -74,7 +81,16 @@ class MainActivity : ComponentActivity() { //one activity, the main
     super.onCreate(savedInstanceState) //set the standard android conf
     enableEdgeToEdge()//view option, cover all the screen
     setContent {  CameraAccessScaffold(viewModel = viewModel, onRequestWearablesPermission = ::requestWearablesPermission,) } //set he UI Scaffold passing the WearablesViewModel
+    lifecycleScope.launch { //corutine async loading of the model
+        YoloProvider.getAsync(applicationContext).await()
+    }
+    Log.d(TAG, "main thread is started with all the resources")
   }
+    override fun onDestroy() {
+        super.onDestroy()
+        YoloProvider.close()
+        Log.d(TAG, "main thread closed with all the resources")
+    }
   //executed on application start
   override fun onStart() { //on start check internet and bluetooth permissions
     super.onStart()

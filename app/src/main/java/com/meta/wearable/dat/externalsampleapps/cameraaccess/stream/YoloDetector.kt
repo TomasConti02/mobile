@@ -116,6 +116,7 @@ class YoloDetector(private val context: Context, modelFilename: String = "yolov8
         }
     }
     */
+    /*
     init {
         try {
         if (OpenCVLoader.initDebug()) {
@@ -166,7 +167,6 @@ class YoloDetector(private val context: Context, modelFilename: String = "yolov8
             }
             interpreter = Interpreter(modelBuffer, interpreterOptions)
         }
-
         interpreter?.let { tfInterpreter -> //model tensor allocation and logging
             tfInterpreter.allocateTensors()
             val inputTensor = tfInterpreter.getInputTensor(0)
@@ -185,6 +185,98 @@ class YoloDetector(private val context: Context, modelFilename: String = "yolov8
         } catch (e: Exception) {
             Log.e("YoloDetector", "Errore critico durante l'inizializzazione di YOLO", e)
         }
+    }
+    */
+    init {
+    try {
+        if (OpenCVLoader.initDebug()) {
+            Log.d("YoloDetector", "OpenCV SDK loaded")
+        } else {
+            Log.e("YoloDetector", "OpenCV SDK loading problems")
+        }
+
+        loadMetadata("metadata_yolov8n_int8.yaml")
+
+        var interpreterOptions = Interpreter.Options()
+
+        try {
+            val modelBuffer = loadModelFile(context, modelFilename)
+
+            // ✅ GPU DELEGATE OTTIMIZZATO
+            val delegateOptions = GpuDelegate.Options().apply {
+
+                // ⚡ velocità > precisione (perfetto per YOLO realtime)
+                setPrecisionLossAllowed(true)
+
+                // ⚡ mantiene prestazioni stabili (meno spike)
+                setInferencePreference(
+                    GpuDelegate.Options.INFERENCE_PREFERENCE_SUSTAINED_SPEED
+                )
+
+                // 🔥 CACHE GPU (FONDAMENTALE)
+                setSerializationParams(
+                    context.cacheDir.absolutePath,
+                    "yolo_v8_$modelFilename"
+                )
+            }
+
+            // ✅ crea UNA SOLA volta il delegate
+            gpuDelegate = GpuDelegate(delegateOptions)
+
+            interpreterOptions = Interpreter.Options().apply {
+                addDelegate(gpuDelegate)
+
+                // ⚡ evita overhead CPU inutile quando usi GPU
+                setNumThreads(1)
+            }
+
+            interpreter = Interpreter(modelBuffer, interpreterOptions)
+
+            Log.d("YoloDetector", "Using GPU acceleration")
+
+        } catch (e: Exception) {
+
+            val fallbackModel = "yolov8n_int8.tflite"
+            val modelBuffer = loadModelFile(context, fallbackModel)
+
+            Log.w("YoloDetector", "GPU failed → CPU fallback: ${e.message}")
+
+            gpuDelegate?.close()
+            gpuDelegate = null
+
+            interpreterOptions = Interpreter.Options().apply {
+                setNumThreads(
+                    Runtime.getRuntime().availableProcessors().coerceAtMost(4)
+                )
+            }
+
+            interpreter = Interpreter(modelBuffer, interpreterOptions)
+        }
+
+        interpreter?.let { tfInterpreter ->
+
+            tfInterpreter.allocateTensors()
+
+            // ✅ WARMUP → elimina lag iniziale GPU
+            try {
+                val dummyInput = Array(1) { Array(640) { Array(640) { FloatArray(3) } } }
+                val dummyOutput = Array(1) { FloatArray(8400 * 85) }
+                tfInterpreter.run(dummyInput, dummyOutput)
+            } catch (_: Exception) {}
+
+            val inputTensor = tfInterpreter.getInputTensor(0)
+
+            Log.i("YoloDetector", """
+                $modelFilename loaded!
+                - Data Type: ${inputTensor.dataType()}
+                - Shape: ${inputTensor.shape().contentToString()}
+                - Hardware: ${if (gpuDelegate != null) "GPU" else "CPU"}
+            """.trimIndent())
+        }
+
+    } catch (e: Exception) {
+        Log.e("YoloDetector", "Errore critico durante l'inizializzazione", e)
+    }
     }
     private fun loadMetadata(fileName: String) {
         try {
@@ -390,15 +482,14 @@ class YoloDetector(private val context: Context, modelFilename: String = "yolov8
         try {
             // 1. Cancella i processi di salvataggio in corso
             saveScope.cancel()
-
-            // 2. Chiudi l'interprete
-            interpreter?.close()
-            interpreter = null
-
-            // 3. IMPORTANTISSIMO: Chiudi il delegate GPU
-            gpuDelegate?.close()
-            gpuDelegate = null
-
+            interpreter?.let {
+                it.close()
+                interpreter = null
+            }
+            gpuDelegate?.let {
+                it.close()
+                gpuDelegate = null
+            }
             Log.d("YoloDetector", "Risorse rilasciate con successo")
         } catch (e: Exception) {
             Log.e("YoloDetector", "Errore durante la chiusura: ${e.message}")

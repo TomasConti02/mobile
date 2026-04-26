@@ -94,7 +94,7 @@ import kotlinx.coroutines.channels.consumeEach
 // ffmpeg -i test3.mp4 -c:v libx265 -c:a aac -tag:v hvc1 -vf "scale=540:960" test_mobility2.movclear
 // adb push test_mobility2.mov /sdcard/Download/
 class StreamViewModel( application: Application, private val wearablesViewModel: WearablesViewModel, ) : AndroidViewModel(application) {
-  companion object {  private const val TAG = "StreamViewModel"
+  companion object {  private val TAG = "StreamViewModel"
     private val INITIAL_STATE = StreamUiState()  }
   private val deviceSelector: DeviceSelector = wearablesViewModel.deviceSelector
   private var streamSession: StreamSession? = null //stream connection
@@ -104,8 +104,9 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
   private var stateJob: Job? = null
   // Presentation queue for buffering frames after color conversion
   private var presentationQueue: PresentationQueue? = null
-  //ADDED
-  private var yoloDetector: YoloDetector? = null //my new neural network for object detection
+  //DA SPOSTAREEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
+  //private var yoloDetector: YoloDetector? = null //my new neural network for object detection
+  private val yoloDetector = YoloProvider.get(application.applicationContext)
   private var frameCounter = 0 //frame skipping
   private val FRAME_SKIP = 4
   //CONFLATED mea
@@ -139,7 +140,7 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
     presentationQueue?.stop()
     presentationQueue = null
     //SYNC inizialization att, because  yoloDetector hva to load a heavy inference model to execute. Background service and state update needed
-    if (yoloDetector == null) { yoloDetector = YoloDetector(getApplication()) }
+    //if (yoloDetector == null) { yoloDetector = YoloDetector(getApplication()) }
     if (motionDetector == null) { motionDetector = MotionDetector()  } ////////////////////////////////////////////////////////////////////////////
     frameCounter = 0
     //CONFLATED non voglio troppo accordamento, se l'immagine arriva prima della fine dell'elaborazione sovrascrivi
@@ -279,8 +280,8 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
       yoloJob?.cancelAndJoin()
       yoloJob = null
 
-      yoloDetector?.close() //closing of yolo detector, and the interpreter as well
-      yoloDetector = null
+      //yoloDetector?.close() //closing of yolo detector, and the interpreter as well
+      //yoloDetector = null
       _uiState.update { INITIAL_STATE } //refresh the ui
     }
   }

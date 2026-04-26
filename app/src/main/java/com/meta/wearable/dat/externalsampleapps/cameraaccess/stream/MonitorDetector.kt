@@ -6,6 +6,7 @@ import org.opencv.android.Utils
 import org.opencv.core.*
 import org.opencv.imgproc.Imgproc
 import kotlin.math.max
+import org.opencv.core.Core
 /*
 this class receive a sequence of bitmap frame from the controller if the stream and define
 if the scene is moving, still or stable after a stableTimeMs of still state.
@@ -24,15 +25,17 @@ class MotionDetector(
     private val diffMat = Mat()
     private val blurMat = Mat()
     private val threshMat = Mat()
-/*
+    private val morphKernel: Mat = Mat.ones(3, 3, CvType.CV_8U)
+    /*
 private val grayMat = UMat() //for gpu
 private val diffMat = UMat()
 * */
     private var frameCount = 0
-    private var currentState = State.STILL
+    private var currentState = State.MOVING
     private var stillStartTime: Long = 0L
+/*
     fun analyze(bitmap: Bitmap): State {
-        //val smallBitmap = Bitmap.createScaledBitmap(bitmap, 160, 120, false)
+        val bitmap = Bitmap.createScaledBitmap(bitmap, 160, 120, false)
         Utils.bitmapToMat(bitmap, currMat) //convert the bitmap into a opencv pixel matrix
         Imgproc.cvtColor(currMat, grayMat, Imgproc.COLOR_BGR2GRAY) //convert the RGB matrix into a gray (less pixel, easy to execute)
         var isMoving = false
@@ -62,6 +65,79 @@ private val diffMat = UMat()
         prevGray = grayMat.clone()
         return updateState()
     }
+
+ */
+fun analyze(bitmap: Bitmap): State {
+
+    // ❌ evita shadowing + reuse pattern più pulito
+    val scaledBitmap = Bitmap.createScaledBitmap(bitmap, 160, 120, false)
+
+    // conversione bitmap → Mat (ok, inevitabile)
+    Utils.bitmapToMat(scaledBitmap, currMat)
+
+    // resize IN OpenCV (più veloce e senza GC)
+    Imgproc.resize(currMat, currMat, Size(160.0, 120.0))
+
+    Imgproc.cvtColor(currMat, grayMat, Imgproc.COLOR_BGR2GRAY)
+
+    var isMoving = false
+
+    prevGray?.let { prev ->
+
+        // diff
+        Core.absdiff(prev, grayMat, diffMat)
+
+        // blur (leggermente più piccolo kernel = meno CPU)
+        Imgproc.GaussianBlur(diffMat, blurMat, Size(7.0, 7.0), 0.0)
+
+        // threshold
+        Imgproc.threshold(
+            blurMat,
+            threshMat,
+            40.0,
+            255.0,
+            Imgproc.THRESH_BINARY
+        )
+
+        // ⚠️ IMPORTANTISSIMO: NON creare Mat.ones ogni frame
+        // meglio cache statico
+        Imgproc.morphologyEx(
+            threshMat,
+            threshMat,
+            Imgproc.MORPH_OPEN,
+            morphKernel
+        )
+
+        val motionPixels = Core.countNonZero(threshMat)
+
+        val totalPixels = threshMat.rows() * threshMat.cols()
+
+        val motionRatio = motionPixels.toDouble() / totalPixels
+
+        isMoving = motionRatio > motionRatioThreshold
+
+        if (motionRatio > motionRatioThreshold * 5) {
+            history.clear()
+            repeat(historySize) { history.add(true) }
+        }
+
+        Log.d("Motion", "ratio=$motionRatio moving=$isMoving")
+    }
+
+    frameCount++
+
+    if (frameCount <= warmupFrames) {
+        isMoving = false
+    }
+
+    updateHistory(isMoving)
+
+    // cleanup corretto
+    prevGray?.release()
+    prevGray = grayMat.clone()
+
+    return updateState()
+}
     private fun updateHistory(value: Boolean) { //keeping a history of historySize true->moving of false->still result of the frame bitmap state
         history.addLast(value)
         if (history.size > historySize) {

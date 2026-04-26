@@ -95,7 +95,7 @@ implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
 
 // RIMUOVI QUESTA RIGA (è un duplicato della precedente con il vecchio ID):
 // implementation("org.tensorflow.lite:tensorflow-lite-support:0.4.4")
-
+  implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
   implementation(libs.androidx.activity.compose)
   implementation(platform(libs.androidx.compose.bom))
   implementation(libs.androidx.exifinterface)
