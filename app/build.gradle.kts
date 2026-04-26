@@ -80,6 +80,7 @@ dependencies {
   // Support library per ImageProcessor e TensorImage
   implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
   implementation(project(":sdk"))
+  implementation("org.yaml:snakeyaml:2.2")
   // Usa un unico Group ID (org.tensorflow) per coerenza
   //implementation("org.tensorflow:tensorflow-lite:2.14.0") ///ADDED
   //implementation("org.tensorflow:tensorflow-lite-gpu:2.14.0") //ADDED

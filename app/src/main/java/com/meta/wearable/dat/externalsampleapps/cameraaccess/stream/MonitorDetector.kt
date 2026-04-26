@@ -24,11 +24,15 @@ class MotionDetector(
     private val diffMat = Mat()
     private val blurMat = Mat()
     private val threshMat = Mat()
-
+/*
+private val grayMat = UMat() //for gpu
+private val diffMat = UMat()
+* */
     private var frameCount = 0
     private var currentState = State.STILL
     private var stillStartTime: Long = 0L
     fun analyze(bitmap: Bitmap): State {
+        //val smallBitmap = Bitmap.createScaledBitmap(bitmap, 160, 120, false)
         Utils.bitmapToMat(bitmap, currMat) //convert the bitmap into a opencv pixel matrix
         Imgproc.cvtColor(currMat, grayMat, Imgproc.COLOR_BGR2GRAY) //convert the RGB matrix into a gray (less pixel, easy to execute)
         var isMoving = false

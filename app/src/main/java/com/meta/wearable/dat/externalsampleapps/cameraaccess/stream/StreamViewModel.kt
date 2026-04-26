@@ -121,10 +121,15 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
   //MVVM is the pattern
   //ViewModel -> as this class manage the state. StreamViewModel -> is the data producer
   // UI (StreamScreen) ->  as streamscreen observe the state -> is the data consumer
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   private val _motionState = MutableStateFlow(MotionDetector.State.STILL) //state mutable and observable variable for MVVM
-  val motionState: StateFlow<MotionDetector.State> = _motionState.asStateFlow() //read only variable from the UI
-  private val _detectedObject = MutableStateFlow<String?>(null) //state mutable and observable variable for MVVM
-  val detectedObject: StateFlow<String?> = _detectedObject.asStateFlow()
+  val motionState: StateFlow<MotionDetector.State> = _motionState.asStateFlow() //read only variable from the
+  /*
+  private val _detectedObject = MutableStateFlow<Detection?>(null) //state mutable and observable variable for MVVM
+  val detectedObject: StateFlow<Detection?> = _detectedObject.asStateFlow()*/
+  private val _detectedObjects = MutableStateFlow<List<Detection>>(emptyList())
+  val detectedObjects: StateFlow<List<Detection>> = _detectedObjects.asStateFlow()
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   fun startStream() {
     Log.d(TAG, "startStream: avvio stream con qualità MEDIUM, 24 fps")
     // cancel job Coroutine, background process
@@ -159,7 +164,8 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
           val duration = System.currentTimeMillis() - start
           if (state == MotionDetector.State.MOVING) {
             hasDetectedObject = false // 🔁 reset quando torna movimento
-            _detectedObject.value = null
+            //_detectedObject.value = null
+            _detectedObjects.value = emptyList()
           }
           Log.d(TAG, "Monitor detector : ${state} in ${duration}ms")
           val now = System.currentTimeMillis()
@@ -221,15 +227,17 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
         isYoloRunning = true //stop other yolo spam detection
         viewModelScope.launch(Dispatchers.Default) { //another launch, keep the main for channel component monitoring
           val start = System.currentTimeMillis()
-          val detections = yoloDetector?.detect(yoloBitmap) ?: emptyList()
+
+          val detections = yoloDetector?.detect(yoloBitmap) ?: emptyList()//YOLO OBJECT DETECTION
 
           val duration = System.currentTimeMillis() - start
           yoloBitmap.recycle()
           if (detections.isNotEmpty()) {
             hasDetectedObject = true //  blocca future inferenze
-            val classId = detections.getOrNull(0)?.classId ?: "NULL"
-            Log.d(TAG, "🎯 YOLO: ${detections.size} in ${duration}ms, classId=$classId")
-            _detectedObject.value = classId?.toString()
+            //val classId = detections.getOrNull(0)?.classId ?: "NULL"
+            _detectedObjects.value = detections
+            //Log.d(TAG, "🎯 YOLO: ${detections.size} in ${duration}ms, classId=$classId")
+            //_detectedObject.value = classId?.toString() //ATTTTTTTTTTT
             //Log.d(TAG, "🎯 YOLO: ${detections.size} in ${duration}ms, ${detections[0]}")
           }
           isYoloRunning = false //reactivate yolo detection

@@ -18,7 +18,7 @@ import java.nio.MappedByteBuffer
 import java.nio.channels.FileChannel
 import org.tensorflow.lite.gpu.CompatibilityList
 
-
+import org.yaml.snakeyaml.Yaml
 
 import org.opencv.android.OpenCVLoader
 ///
@@ -47,7 +47,7 @@ D/YoloCheck: Shape input: [1, 640, 640, 3]
 D/YoloCheck: Quantizzazione - Scale: 0.0, ZeroPoint: 0
  */
 //https://ai.google.dev/edge/litert/android/index
-data class Detection(val classId: Int, val confidence: Float, val boundingBox: RectF)
+data class Detection(val classId: String, val confidence: Float, val boundingBox: RectF)
 class YoloDetector(private val context: Context, modelFilename: String = "yolov8n_float32.tflite") { //by default use yolov8n_float32.tflite
     // Crea uno scope dedicato che non blocca il Main Thread o quello di YOLO
     private val saveScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -73,6 +73,7 @@ class YoloDetector(private val context: Context, modelFilename: String = "yolov8
         .add(NormalizeOp(0f, 255f)) // Normalizza i pixel da 0-255 a 0-1
         .build()
     private var gpuDelegate: GpuDelegate? = null
+    private var labels: Map<Int, String> = emptyMap()
 /*
     init { //class inizializatorn
         try {
@@ -122,14 +123,36 @@ class YoloDetector(private val context: Context, modelFilename: String = "yolov8
         } else {
             Log.e("YoloDetector", "OpenCV SDK loading problems")
         }
+            loadMetadata("metadata_yolov8n_int8.yaml")
         var interpreterOptions = Interpreter.Options()
+
         try { // if there is no gpu available the catch part manage a cpu only setting for the inference component
             val modelBuffer = loadModelFile(context, modelFilename) // default yolov8n_float32.tflite model
+            ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+            val delegateOptions = GpuDelegate.Options().apply {
+                setPrecisionLossAllowed(true)
+                setInferencePreference(GpuDelegate.Options.INFERENCE_PREFERENCE_SUSTAINED_SPEED)
+                // Specifichiamo la cartella dove salvare i kernel compilati
+                // Questo ridurrà i 6 secondi di attesa ai caricamenti successivi
+                val cachePath = context.cacheDir.absolutePath
+                val modelToken = "yolo_v8_float32" // Deve essere univoco per questo modello
+            }
+            // Creazione dell'interprete con opzioni avanzate
+            val interpreterOptions = Interpreter.Options().apply {
+                // Nota: in alcune versioni, la serializzazione si configura così
+                val gpuDelegate = GpuDelegate(delegateOptions)
+                addDelegate(gpuDelegate)
+            }
+            //////////////////////////////////////////////////////////////////////////////////////////////////////
+            /*
             gpuDelegate = GpuDelegate(GpuDelegate.Options().apply {
                 setPrecisionLossAllowed(true)
                 setInferencePreference(GpuDelegate.Options.INFERENCE_PREFERENCE_SUSTAINED_SPEED)
             })
             interpreterOptions.addDelegate(gpuDelegate)
+            */
+
+
             interpreter = Interpreter(modelBuffer, interpreterOptions)
             Log.d("YoloDetector", "using GPU for acceleration")
         } catch (e: Exception) {
@@ -163,7 +186,48 @@ class YoloDetector(private val context: Context, modelFilename: String = "yolov8
             Log.e("YoloDetector", "Errore critico durante l'inizializzazione di YOLO", e)
         }
     }
+    private fun loadMetadata(fileName: String) {
+        try {
+            context.assets.open(fileName).use { inputStream ->
+                val yaml = Yaml()
+                val data = yaml.load<Map<String, Any>>(inputStream)
 
+                // 1. Estrazione dei nomi delle classi
+                @Suppress("UNCHECKED_CAST")
+                val extractedNames = data["names"] as? Map<Int, String>
+                if (extractedNames != null) {
+                    labels = extractedNames
+                }
+
+                // 2. Log dettagliato dei metadati
+                Log.i("YoloDetector", """
+                --- METADATA LOADED ($fileName) ---
+                Description: ${data["description"] ?: "N/A"}
+                Author:      ${data["author"] ?: "N/A"}
+                Date:        ${data["date"] ?: "N/A"}
+                Version:     ${data["version"] ?: "N/A"}
+                Task:        ${data["task"] ?: "N/A"}
+                Stride:      ${data["stride"] ?: "N/A"}
+                Img Size:    ${data["imgsz"] ?: "N/A"}
+                Batch:       ${data["batch"] ?: "N/A"}
+                Classes:     ${labels.size} labels loaded.
+                -----------------------------------
+            """.trimIndent())
+
+                // Opzionale: Log delle prime 3 classi per verifica rapida
+                if (labels.isNotEmpty()) {
+                    val firstClasses = labels.entries.take(3).joinToString { "${it.key}: ${it.value}" }
+                    Log.d("YoloDetector", "First classes: $firstClasses...")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("YoloDetector", "Errore nel caricamento o log dei metadati YAML", e)
+        }
+    }
+    // Funzione helper per ottenere il nome della classe dall'ID
+    fun getClassName(classId: Int): String {
+        return labels[classId] ?: "Unknown"
+    }
     //main operation of yolo called by the model, passing the bitmap frame to detect, output  list of yolo Detected objects
     fun detect(bitmap: Bitmap): List<Detection> {
         val interp = interpreter ?: return emptyList()
@@ -267,9 +331,10 @@ class YoloDetector(private val context: Context, modelFilename: String = "yolov8
                     val top = (realY - realH / 2)
                     val right = (realX + realW / 2)
                     val bottom = (realY + realH / 2)
-                    detections.add( Detection(classId, maxClassConf,
-                        RectF(left.coerceAtLeast(0f), top.coerceAtLeast(0f), right.coerceAtMost(imgW.toFloat()), bottom.coerceAtMost(imgH.toFloat())))
-                    )
+                    //detections.add( Detection(classId, maxClassConf,
+                       // RectF(left.coerceAtLeast(0f), top.coerceAtLeast(0f), right.coerceAtMost(imgW.toFloat()), bottom.coerceAtMost(imgH.toFloat()))) )
+                    detections.add( Detection(getClassName(classId), maxClassConf,
+                        RectF(left.coerceAtLeast(0f), top.coerceAtLeast(0f), right.coerceAtMost(imgW.toFloat()), bottom.coerceAtMost(imgH.toFloat()))))
                 }
             }
         }
@@ -321,10 +386,23 @@ class YoloDetector(private val context: Context, modelFilename: String = "yolov8
         return fileChannel.map(FileChannel.MapMode.READ_ONLY, fileDescriptor.startOffset, fileDescriptor.declaredLength)
     }
     fun close() {
-        Log.e("YoloDetector", "start the resource interpreter release")
-        saveScope.cancel() // eliminate eventually saving process
-        interpreter?.close() //release interpreter resources
-        interpreter = null
+        Log.d("YoloDetector", "Inizio rilascio risorse dell'interprete")
+        try {
+            // 1. Cancella i processi di salvataggio in corso
+            saveScope.cancel()
+
+            // 2. Chiudi l'interprete
+            interpreter?.close()
+            interpreter = null
+
+            // 3. IMPORTANTISSIMO: Chiudi il delegate GPU
+            gpuDelegate?.close()
+            gpuDelegate = null
+
+            Log.d("YoloDetector", "Risorse rilasciate con successo")
+        } catch (e: Exception) {
+            Log.e("YoloDetector", "Errore durante la chiusura: ${e.message}")
+        }
     }
 }
 ////////////////////////////////////////////////////////////////////////////////////
