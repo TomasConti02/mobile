@@ -108,7 +108,7 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
   //private var yoloDetector: YoloDetector? = null //my new neural network for object detection
   private val yoloDetector = YoloProvider.get(application.applicationContext)
   private var frameCounter = 0 //frame skipping
-  private val FRAME_SKIP = 4
+  private val FRAME_SKIP = 6
   //CONFLATED mea
   private lateinit var frameChannel: Channel<Bitmap> //async queue channel for components communication
   //job della coroutine che gira su Dispatchers.Default e prende i frame dal frameChannel per passarli a YOLO.

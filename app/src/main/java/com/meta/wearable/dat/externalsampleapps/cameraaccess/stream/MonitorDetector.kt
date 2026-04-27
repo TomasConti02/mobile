@@ -12,6 +12,157 @@ this class receive a sequence of bitmap frame from the controller if the stream 
 if the scene is moving, still or stable after a stableTimeMs of still state.
 */
 class MotionDetector(
+    private val motionRatioThreshold: Double = 0.025,
+    private val historySize: Int = 6,
+    private val warmupFrames: Int = 10,
+    private val stableTimeMs: Long = 5_000L
+) {
+
+    enum class State { MOVING, STILL, STABLE }
+
+    private var prevGray: Mat? = null
+
+    private val history = ArrayDeque<Boolean>()
+
+    // 🔥 Preallocazione totale (NO realloc per frame)
+    private val currMat = Mat()
+    private val grayMat = Mat()
+    private val diffMat = Mat()
+    private val blurMat = Mat()
+    private val threshMat = Mat()
+
+    // kernel fisso (NON ricreare mai)
+    private val morphKernel: Mat = Mat.ones(3, 3, CvType.CV_8U)
+
+    private var frameCount = 0
+    private var currentState = State.MOVING
+    private var stillStartTime: Long = 0L
+
+    fun analyze(bitmap: Bitmap): State {
+
+        // ⚡ conversione unica
+        Utils.bitmapToMat(bitmap, currMat)
+
+        Imgproc.resize(currMat, currMat, Size(160.0, 120.0))
+        Imgproc.cvtColor(currMat, grayMat, Imgproc.COLOR_RGBA2GRAY)
+
+        var isMoving = false
+
+        prevGray?.let { prev ->
+
+            // diff frame
+            Core.absdiff(prev, grayMat, diffMat)
+
+            // ⚡ più leggero di GaussianBlur
+            Imgproc.blur(diffMat, blurMat, Size(5.0, 5.0))
+
+            // threshold
+            Imgproc.threshold(
+                blurMat,
+                threshMat,
+                40.0,
+                255.0,
+                Imgproc.THRESH_BINARY
+            )
+
+            // morphology (kernel già cache)
+            Imgproc.morphologyEx(
+                threshMat,
+                threshMat,
+                Imgproc.MORPH_OPEN,
+                morphKernel
+            )
+
+            val motionPixels = Core.countNonZero(threshMat)
+            val totalPixels = threshMat.rows() * threshMat.cols()
+
+            val motionRatio = motionPixels.toDouble() / totalPixels
+
+            isMoving = motionRatio > motionRatioThreshold
+
+            // 🔥 reset aggressivo movimento forte
+            if (motionRatio > motionRatioThreshold * 5) {
+                history.clear()
+                repeat(historySize) { history.add(true) }
+            }
+        }
+
+        // warmup (evita lavoro inutile)
+        frameCount++
+        if (frameCount <= warmupFrames) {
+            updatePrevGray()
+            return currentState
+        }
+
+        updateHistory(isMoving)
+        updatePrevGray()
+
+        return updateState()
+    }
+
+    // 🔥 FIX CRITICO: niente clone
+    private fun updatePrevGray() {
+        if (prevGray == null) {
+            prevGray = Mat(grayMat.size(), grayMat.type())
+        }
+        grayMat.copyTo(prevGray)
+    }
+
+    private fun updateHistory(value: Boolean) {
+        history.addLast(value)
+        if (history.size > historySize) {
+            history.removeFirst()
+        }
+    }
+
+    private fun updateState(): State {
+
+        val movingCount = history.count { it }
+
+        val newBaseState = when (currentState) {
+            State.MOVING ->
+                if (movingCount <= 2) State.STILL else State.MOVING
+
+            State.STILL, State.STABLE ->
+                if (movingCount >= 4) State.MOVING else State.STILL
+        }
+
+        if (newBaseState == State.STILL) {
+
+            if (currentState != State.STILL && currentState != State.STABLE) {
+                stillStartTime = System.currentTimeMillis()
+            }
+
+            val elapsed = System.currentTimeMillis() - stillStartTime
+
+            currentState = if (elapsed >= stableTimeMs) {
+                State.STABLE
+            } else {
+                State.STILL
+            }
+
+        } else {
+            stillStartTime = 0L
+            currentState = State.MOVING
+        }
+
+        return currentState
+    }
+
+    fun release() {
+        prevGray?.release()
+
+        currMat.release()
+        grayMat.release()
+        diffMat.release()
+        blurMat.release()
+        threshMat.release()
+
+        morphKernel.release()
+    }
+}
+/*
+class MotionDetector(
     private val motionRatioThreshold: Double = 0.025, //2.5% motion pixel between bitmaps images of a moving scene
     private val historySize: Int = 6, // bitmap frame cached and considered in time for the state
     private val warmupFrames: Int = 5, //skipped frame at the start of the streaming for stabilization
@@ -33,63 +184,16 @@ private val diffMat = UMat()
     private var frameCount = 0
     private var currentState = State.MOVING
     private var stillStartTime: Long = 0L
-/*
-    fun analyze(bitmap: Bitmap): State {
-        val bitmap = Bitmap.createScaledBitmap(bitmap, 160, 120, false)
-        Utils.bitmapToMat(bitmap, currMat) //convert the bitmap into a opencv pixel matrix
-        Imgproc.cvtColor(currMat, grayMat, Imgproc.COLOR_BGR2GRAY) //convert the RGB matrix into a gray (less pixel, easy to execute)
-        var isMoving = false
-        var motionRatio = 0.0
-        prevGray?.let { prev -> //lamba function operation if and only if prevgray is not null
-            Core.absdiff(prev, grayMat, diffMat) //absolute difference between gray pixels images values
-            Imgproc.GaussianBlur(diffMat, blurMat, Size(9.0, 9.0), 0.0) //exec GB filter in order to reduce the noise for the absolute diff
-            Imgproc.threshold(blurMat, threshMat, 40.0, 255.0, Imgproc.THRESH_BINARY) //pixels with a abs diff of >40 became 255(moving) otherwise 0 (still)
-            Imgproc.morphologyEx(threshMat, threshMat, Imgproc.MORPH_OPEN, Mat.ones(3, 3, CvType.CV_8U)) //opening, reduce the noise outliers
-            val motionPixels = Core.countNonZero(threshMat) //count white pixels
-            val totalPixels = max(1, threshMat.rows() * threshMat.cols())
-            motionRatio = motionPixels.toDouble() / totalPixels //motion area
-            if (motionRatio < 0.005) { //filtering motio ratio outliers
-                motionRatio = 0.0
-            }
-            isMoving = motionRatio > motionRatioThreshold //define is the state is in moving based on the class threshold
-            if (motionRatio > motionRatioThreshold * 5) { //change very fast the state with out the need of recreate the entire history
-                history.clear()
-                repeat(historySize) { history.add(true) }
-            }
-            Log.d("Motion", "ratio=$motionRatio moving=$isMoving")
-        }
-        frameCount++
-        if (frameCount <= warmupFrames) {  isMoving = false  } //set at the begging for stabilization
-        updateHistory(isMoving)
-        prevGray?.release() //clean the memory of the gray images
-        prevGray = grayMat.clone()
-        return updateState()
-    }
-
- */
 fun analyze(bitmap: Bitmap): State {
-
-    // ❌ evita shadowing + reuse pattern più pulito
-    val scaledBitmap = Bitmap.createScaledBitmap(bitmap, 160, 120, false)
-
-    // conversione bitmap → Mat (ok, inevitabile)
-    Utils.bitmapToMat(scaledBitmap, currMat)
-
-    // resize IN OpenCV (più veloce e senza GC)
+    Utils.bitmapToMat(bitmap, currMat)
     Imgproc.resize(currMat, currMat, Size(160.0, 120.0))
-
-    Imgproc.cvtColor(currMat, grayMat, Imgproc.COLOR_BGR2GRAY)
-
+    Imgproc.cvtColor(currMat, grayMat, Imgproc.COLOR_RGBA2GRAY)
     var isMoving = false
-
     prevGray?.let { prev ->
-
         // diff
         Core.absdiff(prev, grayMat, diffMat)
-
         // blur (leggermente più piccolo kernel = meno CPU)
         Imgproc.GaussianBlur(diffMat, blurMat, Size(7.0, 7.0), 0.0)
-
         // threshold
         Imgproc.threshold(
             blurMat,
@@ -98,7 +202,6 @@ fun analyze(bitmap: Bitmap): State {
             255.0,
             Imgproc.THRESH_BINARY
         )
-
         // ⚠️ IMPORTANTISSIMO: NON creare Mat.ones ogni frame
         // meglio cache statico
         Imgproc.morphologyEx(
@@ -107,35 +210,24 @@ fun analyze(bitmap: Bitmap): State {
             Imgproc.MORPH_OPEN,
             morphKernel
         )
-
         val motionPixels = Core.countNonZero(threshMat)
-
         val totalPixels = threshMat.rows() * threshMat.cols()
-
         val motionRatio = motionPixels.toDouble() / totalPixels
-
         isMoving = motionRatio > motionRatioThreshold
-
         if (motionRatio > motionRatioThreshold * 5) {
             history.clear()
             repeat(historySize) { history.add(true) }
         }
-
         Log.d("Motion", "ratio=$motionRatio moving=$isMoving")
     }
-
     frameCount++
-
     if (frameCount <= warmupFrames) {
         isMoving = false
     }
-
     updateHistory(isMoving)
-
     // cleanup corretto
     prevGray?.release()
     prevGray = grayMat.clone()
-
     return updateState()
 }
     private fun updateHistory(value: Boolean) { //keeping a history of historySize true->moving of false->still result of the frame bitmap state
@@ -181,7 +273,44 @@ fun analyze(bitmap: Bitmap): State {
         blurMat.release()
         threshMat.release()
     }
-}
+}*/
+
+
+
+/*
+    fun analyze(bitmap: Bitmap): State {
+        val bitmap = Bitmap.createScaledBitmap(bitmap, 160, 120, false)
+        Utils.bitmapToMat(bitmap, currMat) //convert the bitmap into a opencv pixel matrix
+        Imgproc.cvtColor(currMat, grayMat, Imgproc.COLOR_BGR2GRAY) //convert the RGB matrix into a gray (less pixel, easy to execute)
+        var isMoving = false
+        var motionRatio = 0.0
+        prevGray?.let { prev -> //lamba function operation if and only if prevgray is not null
+            Core.absdiff(prev, grayMat, diffMat) //absolute difference between gray pixels images values
+            Imgproc.GaussianBlur(diffMat, blurMat, Size(9.0, 9.0), 0.0) //exec GB filter in order to reduce the noise for the absolute diff
+            Imgproc.threshold(blurMat, threshMat, 40.0, 255.0, Imgproc.THRESH_BINARY) //pixels with a abs diff of >40 became 255(moving) otherwise 0 (still)
+            Imgproc.morphologyEx(threshMat, threshMat, Imgproc.MORPH_OPEN, Mat.ones(3, 3, CvType.CV_8U)) //opening, reduce the noise outliers
+            val motionPixels = Core.countNonZero(threshMat) //count white pixels
+            val totalPixels = max(1, threshMat.rows() * threshMat.cols())
+            motionRatio = motionPixels.toDouble() / totalPixels //motion area
+            if (motionRatio < 0.005) { //filtering motio ratio outliers
+                motionRatio = 0.0
+            }
+            isMoving = motionRatio > motionRatioThreshold //define is the state is in moving based on the class threshold
+            if (motionRatio > motionRatioThreshold * 5) { //change very fast the state with out the need of recreate the entire history
+                history.clear()
+                repeat(historySize) { history.add(true) }
+            }
+            Log.d("Motion", "ratio=$motionRatio moving=$isMoving")
+        }
+        frameCount++
+        if (frameCount <= warmupFrames) {  isMoving = false  } //set at the begging for stabilization
+        updateHistory(isMoving)
+        prevGray?.release() //clean the memory of the gray images
+        prevGray = grayMat.clone()
+        return updateState()
+    }
+
+ */
 /*
 package com.example.motion
 

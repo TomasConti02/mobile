@@ -74,119 +74,7 @@ class YoloDetector(private val context: Context, modelFilename: String = "yolov8
         .build()
     private var gpuDelegate: GpuDelegate? = null
     private var labels: Map<Int, String> = emptyMap()
-/*
-    init { //class inizializatorn
-        try {
-            if (OpenCVLoader.initDebug()) {
-                Log.d("OpenCV", "Libreria caricata correttamente!")
-            } else {
-                Log.e("OpenCV", "Errore nel caricamento della libreria.")
-            }
-            //https://ai.google.dev/edge/api/tflite/java/org/tensorflow/lite/gpu/GpuDelegateFactory.Options
-            gpuDelegate = GpuDelegate(GpuDelegate.Options().apply {
-                // Opzionale: permette calcoli a 16-bit per maggiore velocità
-                setPrecisionLossAllowed(true)
-                setInferencePreference(GpuDelegate.Options.INFERENCE_PREFERENCE_SUSTAINED_SPEED)
-            })
-
-            val options2 = Interpreter.Options().apply {
-                addDelegate(gpuDelegate)
-            }
-
-            val modelBuffer = loadModelFile(context, modelFilename)
-            //https://ai.google.dev/edge/api/tflite/java/org/tensorflow/lite/gpu/GpuDelegate   ->gpu delegation testing
-            //https://blog.tensorflow.org/2019/01/tensorflow-lite-now-faster-with-mobile.html
-            val options = Interpreter.Options().apply { setNumThreads(4) } //threads for inference parallels execution, better thoughput
-
-            interpreter = Interpreter(modelBuffer, options2)
-            interpreter?.allocateTensors()
-
-            val inputTensor = interpreter?.getInputTensor(0)
-            val inputDataType = inputTensor?.dataType()
-            val inputShape = inputTensor?.shape()?.contentToString()
-
-            val inputQuantizationScale = inputTensor?.quantizationParams()?.scale
-            val inputQuantizationZeroPoint = inputTensor?.quantizationParams()?.zeroPoint
-
-            Log.d("YoloDetector", "$modelFilename yolo detector loaded correctly | input data type : $inputDataType " +
-                    "| input shape: $inputShape | input quantization scale $inputQuantizationScale and zero-point $inputQuantizationZeroPoint")
-
-        } catch (e: Exception) {
-            Log.e("YoloDetector", "Error in yolo initialization", e)
-        }
-    }
-    */
-    /*
-    init {
-        try {
-        if (OpenCVLoader.initDebug()) {
-            Log.d("YoloDetector", "OpenCV SDK loaded")
-        } else {
-            Log.e("YoloDetector", "OpenCV SDK loading problems")
-        }
-            loadMetadata("metadata_yolov8n_int8.yaml")
-        var interpreterOptions = Interpreter.Options()
-
-        try { // if there is no gpu available the catch part manage a cpu only setting for the inference component
-            val modelBuffer = loadModelFile(context, modelFilename) // default yolov8n_float32.tflite model
-            ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-            val delegateOptions = GpuDelegate.Options().apply {
-                setPrecisionLossAllowed(true)
-                setInferencePreference(GpuDelegate.Options.INFERENCE_PREFERENCE_SUSTAINED_SPEED)
-                // Specifichiamo la cartella dove salvare i kernel compilati
-                // Questo ridurrà i 6 secondi di attesa ai caricamenti successivi
-                val cachePath = context.cacheDir.absolutePath
-                val modelToken = "yolo_v8_float32" // Deve essere univoco per questo modello
-            }
-            // Creazione dell'interprete con opzioni avanzate
-            val interpreterOptions = Interpreter.Options().apply {
-                // Nota: in alcune versioni, la serializzazione si configura così
-                val gpuDelegate = GpuDelegate(delegateOptions)
-                addDelegate(gpuDelegate)
-            }
-            //////////////////////////////////////////////////////////////////////////////////////////////////////
-            /*
-            gpuDelegate = GpuDelegate(GpuDelegate.Options().apply {
-                setPrecisionLossAllowed(true)
-                setInferencePreference(GpuDelegate.Options.INFERENCE_PREFERENCE_SUSTAINED_SPEED)
-            })
-            interpreterOptions.addDelegate(gpuDelegate)
-            */
-
-
-            interpreter = Interpreter(modelBuffer, interpreterOptions)
-            Log.d("YoloDetector", "using GPU for acceleration")
-        } catch (e: Exception) {
-            val modelFilename="yolov8n_int8.tflite" //default model, allways works
-            val modelBuffer = loadModelFile(context, modelFilename) //with cpu only yolov8n_int8.tflite is better
-            Log.w("YoloDetector", "No GPU available, fallback on CPU: ${e.message}")
-            gpuDelegate?.close()
-            gpuDelegate = null
-            interpreterOptions = Interpreter.Options().apply {
-                setNumThreads(4) // tread off for cpu optimization
-            }
-            interpreter = Interpreter(modelBuffer, interpreterOptions)
-        }
-        interpreter?.let { tfInterpreter -> //model tensor allocation and logging
-            tfInterpreter.allocateTensors()
-            val inputTensor = tfInterpreter.getInputTensor(0)
-            val inputDataType = inputTensor.dataType()
-            val inputShape = inputTensor.shape().contentToString()
-            val quantParams = inputTensor.quantizationParams()
-            Log.i("YoloDetector", """
-                $modelFilename loaded !
-                - Data Type: $inputDataType
-                - Shape: $inputShape
-                - Quantization Scale: ${quantParams.scale}
-                - Zero Point: ${quantParams.zeroPoint}
-                - Hardware: ${if (gpuDelegate != null) "GPU" else "CPU (4 threads)"}
-            """.trimIndent())
-        }
-        } catch (e: Exception) {
-            Log.e("YoloDetector", "Errore critico durante l'inizializzazione di YOLO", e)
-        }
-    }
-    */
+    private val tensorImage = TensorImage(DataType.FLOAT32)
     init {
     try {
         if (OpenCVLoader.initDebug()) {
@@ -323,16 +211,18 @@ class YoloDetector(private val context: Context, modelFilename: String = "yolov8
     //main operation of yolo called by the model, passing the bitmap frame to detect, output  list of yolo Detected objects
     fun detect(bitmap: Bitmap): List<Detection> {
         val interp = interpreter ?: return emptyList()
-        var tensorImage = TensorImage(DataType.FLOAT32) //the model is quant. with int8 bit for weight parameters but input keep as float32 bit
+        //var tensorImage = TensorImage(DataType.FLOAT32) //the model is quant. with int8 bit for weight parameters but input keep as float32 bit
+        //tensorImage.load(bitmap)
+        //tensorImage = imageProcessor.process(tensorImage)
         tensorImage.load(bitmap)
-        tensorImage = imageProcessor.process(tensorImage)
+        val processed = imageProcessor.process(tensorImage)
         // save original image shape for remap
         val imgW = bitmap.width
         val imgH = bitmap.height
         try {
             // 2. Inferenza
             ///val startTime = System.nanoTime()
-            interp.run(tensorImage.buffer, outputBuffer) // inference yolo operation
+            interp.run(processed.buffer, outputBuffer) // inference yolo operation
             //val endTime = System.nanoTime()
             //val inferenceTimeMs = (endTime - startTime) / 1_000_000.0 // converti in millisecondi
             //Log.d("YoloDetector", "Tempo di inferenza: $inferenceTimeMs ms")
@@ -538,7 +428,119 @@ fun saveDetectionToDownloads(context: Context, bitmap: Bitmap, className: String
 
 
 ////////////////////////////////////////////////////////////////////////////////
+/*
+    init { //class inizializatorn
+        try {
+            if (OpenCVLoader.initDebug()) {
+                Log.d("OpenCV", "Libreria caricata correttamente!")
+            } else {
+                Log.e("OpenCV", "Errore nel caricamento della libreria.")
+            }
+            //https://ai.google.dev/edge/api/tflite/java/org/tensorflow/lite/gpu/GpuDelegateFactory.Options
+            gpuDelegate = GpuDelegate(GpuDelegate.Options().apply {
+                // Opzionale: permette calcoli a 16-bit per maggiore velocità
+                setPrecisionLossAllowed(true)
+                setInferencePreference(GpuDelegate.Options.INFERENCE_PREFERENCE_SUSTAINED_SPEED)
+            })
 
+            val options2 = Interpreter.Options().apply {
+                addDelegate(gpuDelegate)
+            }
+
+            val modelBuffer = loadModelFile(context, modelFilename)
+            //https://ai.google.dev/edge/api/tflite/java/org/tensorflow/lite/gpu/GpuDelegate   ->gpu delegation testing
+            //https://blog.tensorflow.org/2019/01/tensorflow-lite-now-faster-with-mobile.html
+            val options = Interpreter.Options().apply { setNumThreads(4) } //threads for inference parallels execution, better thoughput
+
+            interpreter = Interpreter(modelBuffer, options2)
+            interpreter?.allocateTensors()
+
+            val inputTensor = interpreter?.getInputTensor(0)
+            val inputDataType = inputTensor?.dataType()
+            val inputShape = inputTensor?.shape()?.contentToString()
+
+            val inputQuantizationScale = inputTensor?.quantizationParams()?.scale
+            val inputQuantizationZeroPoint = inputTensor?.quantizationParams()?.zeroPoint
+
+            Log.d("YoloDetector", "$modelFilename yolo detector loaded correctly | input data type : $inputDataType " +
+                    "| input shape: $inputShape | input quantization scale $inputQuantizationScale and zero-point $inputQuantizationZeroPoint")
+
+        } catch (e: Exception) {
+            Log.e("YoloDetector", "Error in yolo initialization", e)
+        }
+    }
+    */
+/*
+init {
+    try {
+    if (OpenCVLoader.initDebug()) {
+        Log.d("YoloDetector", "OpenCV SDK loaded")
+    } else {
+        Log.e("YoloDetector", "OpenCV SDK loading problems")
+    }
+        loadMetadata("metadata_yolov8n_int8.yaml")
+    var interpreterOptions = Interpreter.Options()
+
+    try { // if there is no gpu available the catch part manage a cpu only setting for the inference component
+        val modelBuffer = loadModelFile(context, modelFilename) // default yolov8n_float32.tflite model
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+        val delegateOptions = GpuDelegate.Options().apply {
+            setPrecisionLossAllowed(true)
+            setInferencePreference(GpuDelegate.Options.INFERENCE_PREFERENCE_SUSTAINED_SPEED)
+            // Specifichiamo la cartella dove salvare i kernel compilati
+            // Questo ridurrà i 6 secondi di attesa ai caricamenti successivi
+            val cachePath = context.cacheDir.absolutePath
+            val modelToken = "yolo_v8_float32" // Deve essere univoco per questo modello
+        }
+        // Creazione dell'interprete con opzioni avanzate
+        val interpreterOptions = Interpreter.Options().apply {
+            // Nota: in alcune versioni, la serializzazione si configura così
+            val gpuDelegate = GpuDelegate(delegateOptions)
+            addDelegate(gpuDelegate)
+        }
+        //////////////////////////////////////////////////////////////////////////////////////////////////////
+        /*
+        gpuDelegate = GpuDelegate(GpuDelegate.Options().apply {
+            setPrecisionLossAllowed(true)
+            setInferencePreference(GpuDelegate.Options.INFERENCE_PREFERENCE_SUSTAINED_SPEED)
+        })
+        interpreterOptions.addDelegate(gpuDelegate)
+        */
+
+
+        interpreter = Interpreter(modelBuffer, interpreterOptions)
+        Log.d("YoloDetector", "using GPU for acceleration")
+    } catch (e: Exception) {
+        val modelFilename="yolov8n_int8.tflite" //default model, allways works
+        val modelBuffer = loadModelFile(context, modelFilename) //with cpu only yolov8n_int8.tflite is better
+        Log.w("YoloDetector", "No GPU available, fallback on CPU: ${e.message}")
+        gpuDelegate?.close()
+        gpuDelegate = null
+        interpreterOptions = Interpreter.Options().apply {
+            setNumThreads(4) // tread off for cpu optimization
+        }
+        interpreter = Interpreter(modelBuffer, interpreterOptions)
+    }
+    interpreter?.let { tfInterpreter -> //model tensor allocation and logging
+        tfInterpreter.allocateTensors()
+        val inputTensor = tfInterpreter.getInputTensor(0)
+        val inputDataType = inputTensor.dataType()
+        val inputShape = inputTensor.shape().contentToString()
+        val quantParams = inputTensor.quantizationParams()
+        Log.i("YoloDetector", """
+            $modelFilename loaded !
+            - Data Type: $inputDataType
+            - Shape: $inputShape
+            - Quantization Scale: ${quantParams.scale}
+            - Zero Point: ${quantParams.zeroPoint}
+            - Hardware: ${if (gpuDelegate != null) "GPU" else "CPU (4 threads)"}
+        """.trimIndent())
+    }
+    } catch (e: Exception) {
+        Log.e("YoloDetector", "Errore critico durante l'inizializzazione di YOLO", e)
+    }
+}
+*/
 /*
     private fun loadModelFile(context: Context, filename: String): MappedByteBuffer {
         //context.assets.openFd() system call for file loading
