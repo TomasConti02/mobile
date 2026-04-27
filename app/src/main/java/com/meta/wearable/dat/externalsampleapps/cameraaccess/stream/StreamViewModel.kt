@@ -49,7 +49,7 @@
  */
 
 package com.meta.wearable.dat.externalsampleapps.cameraaccess.stream
-
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.yolo.*
 import android.app.Application
 import android.content.Intent
 import android.graphics.Bitmap
@@ -86,7 +86,6 @@ import kotlinx.coroutines.Dispatchers //ADDED
 import kotlinx.coroutines.channels.Channel//
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.cancelAndJoin
-import com.example.motion.MotionDetector
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.channels.consumeEach
 //StreamViewModel -> class. receive data from IoT device, stream the data stream and execute a sample YOLO object detection

@@ -26,11 +26,11 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions
 import androidx.activity.viewModels
 import androidx.lifecycle.ViewModel
-import com.meta.wearable.dat.externalsampleapps.cameraaccess.stream.YoloProvider
+
 import com.meta.wearable.dat.core.Wearables //sdk
 import com.meta.wearable.dat.core.types.Permission //sdk
 import com.meta.wearable.dat.core.types.PermissionStatus //sdk
-import com.meta.wearable.dat.externalsampleapps.cameraaccess.stream.YoloDetector
+
 
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.ui.CameraAccessScaffold
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.wearables.WearablesViewModel
@@ -43,6 +43,7 @@ import kotlinx.coroutines.sync.withLock
 import androidx.lifecycle.lifecycleScope
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.stream.StreamViewModel
 import kotlinx.coroutines.launch
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.yolo.*
 // https://wearables.developer.meta.com/docs/reference/android/dat/0.4/com_meta_wearable_dat_core_wearables
 // https://wearables.developer.meta.com/docs/reference/android/dat/0.4
 class MainActivity : ComponentActivity() { //one activity, the main
