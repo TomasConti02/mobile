@@ -82,8 +82,13 @@ class MainActivity : ComponentActivity() { //one activity, the main
     super.onCreate(savedInstanceState) //set the standard android conf
     enableEdgeToEdge()//view option, cover all the screen
     setContent {  CameraAccessScaffold(viewModel = viewModel, onRequestWearablesPermission = ::requestWearablesPermission,) } //set he UI Scaffold passing the WearablesViewModel
+    /*
     lifecycleScope.launch { //corutine for singleton asincrono lazy, yolo model loading
         YoloProvider.getAsync(applicationContext).await()
+    }
+     */
+    lifecycleScope.launch {
+        YoloProvider.get(applicationContext)
     }
     Log.d(TAG, "main thread is started with all the resources")
   }

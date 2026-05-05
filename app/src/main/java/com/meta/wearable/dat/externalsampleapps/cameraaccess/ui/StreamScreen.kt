@@ -172,7 +172,7 @@ fun StreamScreen(
             ) {
                 detectedObjects.forEach { detection ->
                     Text(
-                        text = "📷 id=${detection.classId} (${(detection.confidence * 100).toInt()}%)",
+                        text = "📷 object=${detection.classId} - confidence:(${(detection.confidence * 100).toInt()}%)",
                         color = Color.Yellow,
                         fontSize = 14.sp
                     )

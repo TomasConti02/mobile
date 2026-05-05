@@ -105,7 +105,7 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
   private var presentationQueue: PresentationQueue? = null
   //DA SPOSTAREEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
   //private var yoloDetector: YoloDetector? = null //my new neural network for object detection
-  private val yoloDetector = YoloProvider.get(application.applicationContext)
+  private var yoloDetector: YoloDetector? = null
   private var frameCounter = 0 //frame skipping
   private val FRAME_SKIP = 6
   //CONFLATED mea
@@ -116,7 +116,10 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
   private var lastState: MotionDetector.State? = null //execute yolo inference only one time after stable state
   private var lastYoloTime = 0L
   private val YOLO_INTERVAL_MS = 1000L
-  private var motionDetector: MotionDetector? = null //////////////////////////////////////////////////////////////////////////////////////////
+  //private var motionDetector: MotionDetector? = null //////////////////////////////////////////////////////////////////////////////////////////
+  private val motionDetector by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+    MotionDetectorFactory.getInstance()
+  }
   private var hasDetectedObject = false // if the state is stable and we detect the object sto the yolo inference for the stable camera period
   //MVVM is the pattern
   //ViewModel -> as this class manage the state. StreamViewModel -> is the data producer
@@ -134,13 +137,16 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
     Log.d(TAG, "startStream: avvio stream con qualità MEDIUM, 24 fps")
     // cancel job Coroutine, background process
     //state cleaning before run
+    viewModelScope.launch {
+      yoloDetector = YoloProvider.get(getApplication())
+    }
     videoJob?.cancel()
     stateJob?.cancel()
     presentationQueue?.stop()
     presentationQueue = null
     //SYNC inizialization att, because  yoloDetector hva to load a heavy inference model to execute. Background service and state update needed
     //if (yoloDetector == null) { yoloDetector = YoloDetector(getApplication()) }
-    if (motionDetector == null) { motionDetector = MotionDetector()  } ////////////////////////////////////////////////////////////////////////////
+    //if (motionDetector == null) { motionDetector = MotionDetector()  } ////////////////////////////////////////////////////////////////////////////
     frameCounter = 0
     //CONFLATED non voglio troppo accordamento, se l'immagine arriva prima della fine dell'elaborazione sovrascrivi
     frameChannel = Channel<Bitmap>(Channel.CONFLATED) //keep only last bitmap frame (good for buffer efficiency )
@@ -159,8 +165,10 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
           }
           val start = System.currentTimeMillis()
           //no another launch, because "for (bitmap in frameChannel) {" could keep in loop and overload coroutine launch, heap overload !!!!!!!!!!!!!!!!
-          val state = motionDetector?.analyze(bitmap) // output of the scena state monitored
-          _motionState.value = state ?: MotionDetector.State.STILL
+          //val state = motionDetector?.analyze(bitmap) // output of the scena state monitored
+          //_motionState.value = state ?: MotionDetector.State.STILL
+          val state = motionDetector.analyze(bitmap)
+          _motionState.value = state
           val duration = System.currentTimeMillis() - start
           if (state == MotionDetector.State.MOVING) {
             hasDetectedObject = false // 🔁 reset quando torna movimento
@@ -262,6 +270,7 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
       Log.e(TAG, "YUV -> Bitmap failed")
     }
   }
+
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -444,6 +453,7 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
     super.onCleared()
     stopStream()
     stateJob?.cancel()
+    MotionDetectorFactory.release()
   }
 
   class Factory( private val application: Application, private val wearablesViewModel: WearablesViewModel, ) : ViewModelProvider.Factory {

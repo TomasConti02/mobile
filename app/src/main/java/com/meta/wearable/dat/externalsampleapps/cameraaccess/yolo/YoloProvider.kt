@@ -2,7 +2,47 @@ package com.meta.wearable.dat.externalsampleapps.cameraaccess.yolo
 
 import android.content.Context
 import kotlinx.coroutines.*
+object YoloProvider {
 
+    @Volatile
+    private var instance: YoloDetector? = null
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    private var initJob: Deferred<YoloDetector>? = null
+
+    fun initAsync(context: Context): Deferred<YoloDetector> {
+        instance?.let {
+            return CompletableDeferred(it)
+        }
+
+        initJob?.let {
+            return it
+        }
+
+        initJob = scope.async {
+            val detector = YoloDetector(context.applicationContext)
+            instance = detector
+            detector
+        }
+
+        return initJob!!
+    }
+
+    suspend fun get(context: Context): YoloDetector {
+        return instance ?: initAsync(context).await()
+    }
+
+    fun getOrNull(): YoloDetector? = instance
+
+    fun close() {
+        scope.coroutineContext.cancelChildren()
+        instance?.close()
+        instance = null
+        initJob = null
+    }
+}
+/*
 object YoloProvider {
 
     private var instance: YoloDetector? = null
@@ -37,4 +77,4 @@ object YoloProvider {
         instance = null
         initJob = null
     }
-}
+}*/
