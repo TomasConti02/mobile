@@ -34,15 +34,10 @@ class MotionDetector(
     private var stillStartTime: Long = 0L
 
     fun analyze(bitmap: Bitmap): State {
-
-        // ⚡ conversione unica
         Utils.bitmapToMat(bitmap, currMat)
-
         Imgproc.resize(currMat, currMat, Size(160.0, 120.0))
         Imgproc.cvtColor(currMat, grayMat, Imgproc.COLOR_RGBA2GRAY)
-
         var isMoving = false
-
         prevGray?.let { prev ->
             Core.absdiff(prev, grayMat, diffMat)
             Imgproc.blur(diffMat, blurMat, Size(5.0, 5.0))

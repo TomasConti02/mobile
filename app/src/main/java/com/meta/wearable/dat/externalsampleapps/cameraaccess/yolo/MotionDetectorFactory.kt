@@ -11,15 +11,12 @@ object MotionDetectorFactory {
         warmupFrames: Int = 10,
         stableTimeMs: Long = 5_000L
     ): MotionDetector {
-
-        return instance ?: synchronized(this) {
-            instance ?: MotionDetector(
-                motionRatioThreshold,
-                historySize,
-                warmupFrames,
-                stableTimeMs
-            ).also { instance = it }
-        }
+        return instance ?: MotionDetector(
+            motionRatioThreshold,
+            historySize,
+            warmupFrames,
+            stableTimeMs
+        ).also { instance = it }
     }
 
     fun release() {
