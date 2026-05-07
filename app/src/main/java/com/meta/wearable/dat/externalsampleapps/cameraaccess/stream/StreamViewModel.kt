@@ -44,6 +44,9 @@ import kotlinx.coroutines.Dispatchers //ADDED
 import kotlinx.coroutines.channels.Channel//
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.isActive // Opzionale, se usi ancora isActive
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.channels.consumeEach
 //StreamViewModel -> class. receive data from IoT device, stream the data stream and execute a sample YOLO object detection
@@ -89,7 +92,7 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
 
     frameCounter = 0
     frameChannel = Channel<Bitmap>(Channel.CONFLATED) //keep only last bitmap frame (good for buffer efficiency), overwrite if too slow
-
+    /*
     yoloJob = viewModelScope.launch(Dispatchers.Default ) { //life cycle scope ViewModel, and execute into Dispatchers.Default thread pool for cpu intensive operations
       for (bitmap in frameChannel) { //corutine suspend if there is no bitmap on the channel and let free the thread
         try {
@@ -122,7 +125,38 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
         }
       }
     }
-
+    */
+    yoloJob = viewModelScope.launch(Dispatchers.Default) {
+      try {
+        for (bitmap in frameChannel) {
+          ensureActive()
+          try {
+            val state = motionDetector.analyze(bitmap)
+            _motionState.value = state
+            val now = System.currentTimeMillis()
+            val justBecameStable = state == MotionDetector.State.STABLE && lastState == MotionDetector.State.MOVING
+            val timeOk = now - lastYoloTime > YOLO_INTERVAL_MS
+            if (state == MotionDetector.State.MOVING) {
+              hasDetectedObject = false
+              _detectedObjects.value = emptyList()
+            }
+            if (state == MotionDetector.State.STABLE && !hasDetectedObject && (justBecameStable || timeOk)) {
+              lastYoloTime = now
+              triggerYolo(bitmap)
+            } else {
+              bitmap.recycle() //not for yolo so recycle, avoid memory leak
+            }
+            lastState = state
+          } catch (e: Exception) {
+            if (!bitmap.isRecycled) bitmap.recycle() //analisy fail
+            Log.e(TAG, "Error during frame processing", e)
+          }
+        }
+      } catch (e: CancellationException) {
+        // La cancellazione è un evento normale nel viewModelScope
+        Log.d(TAG, "YOLO Job cancelled")
+      }
+    }
     val queue = PresentationQueue(
             bufferDelayMs = 100L,
             maxQueueSize = 15,
@@ -214,6 +248,9 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
       videoJob = null
       if (::frameChannel.isInitialized) {
         frameChannel.close()
+        for (bitmap in frameChannel) {
+          bitmap.recycle()
+        }
       }
       yoloJob?.cancelAndJoin()
       yoloJob = null
