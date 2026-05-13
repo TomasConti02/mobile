@@ -1,17 +1,12 @@
 package com.meta.wearable.dat.externalsampleapps.cameraaccess.yolo
-/*
-In un'app wearable o mobile, inizializzare YOLO nel thread principale bloccherebbe l'interfaccia utente (UI Freeze). Questo pattern risolve tre problemi:
-Non-Blocking: initAsync lancia il caricamento in background (Dispatchers.Default) e restituisce subito una "promessa" (Deferred).
-Evita Inizializzazioni Multiple: Se chiami initAsync dieci volte mentre il modello sta ancora caricando, il codice non crea dieci modelli, ma restituisce a tutti lo stesso initJob.
-Accesso Sospeso: Il metodo suspend fun get() permette di attendere il completamento solo se necessario, senza bloccare il thread.
-* */
+
 import android.content.Context
 import kotlinx.coroutines.*
 object YoloProvider {
 
     @Volatile
     private var instance: YoloDetector? = null
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var initJob: Deferred<YoloDetector>? = null
     fun initAsync(context: Context): Deferred<YoloDetector> {
         instance?.let {

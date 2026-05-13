@@ -48,8 +48,7 @@ D/YoloCheck: Quantizzazione - Scale: 0.0, ZeroPoint: 0
  */
 //https://ai.google.dev/edge/litert/android/index
 data class Detection(val classId: String, val confidence: Float, val boundingBox: RectF)
-class YoloDetector(private val context: Context, modelFilename: String = "yolov8n_float32.tflite") { //by default use yolov8n_float32.tflite
-    // Crea uno scope dedicato che non blocca il Main Thread o quello di YOLO
+class YoloDetector(private val context: Context, modelFilename: String = "yolov8n_float32.tflite") {
     private val saveScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var interpreter: Interpreter? = null //A Interpreter encapsulates a pre-trained TensorFlow Lite model, in which operations are executed for model inference
     private val inputSize = 640     // yolo need a 640x640 as input activation
