@@ -92,7 +92,7 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
       try {
         for (bitmap in frameChannel) { //corutine manage one bitmap at time, wait if there is no one
           try {
-            val state = motionDetector.analyze(bitmap) //get the state
+            val state = motionDetector.analyze(bitmap) // get the state
             _motionState.value = state
             val now = System.currentTimeMillis()
             val justBecameStable = state == MotionDetector.State.STABLE && lastState == MotionDetector.State.MOVING
@@ -130,7 +130,7 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
                 deviceSelector,
                 StreamConfiguration(videoQuality = VideoQuality.MEDIUM, 24), ).also { streamSession = it }
 
-    videoJob = viewModelScope.launch { streamSession.videoStream.collect { handleVideoFrame(it) } }
+    videoJob = viewModelScope.launch { streamSession.videoStream.collect { handleVideoFrame(it) } } //launch at each frame
 
     stateJob = viewModelScope.launch {  streamSession.state.collect { currentState ->
             val prevState = _uiState.value.streamSessionState
@@ -152,7 +152,7 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
           val detections = yoloDetector?.detect(bitmap) ?: emptyList() // ask to the model the detected classes
           if (detections.isNotEmpty()) {
             hasDetectedObject = true
-            _detectedObjects.value = detections
+            _detectedObjects.value = detections //list of detected object form the yolo inference
           }
         } finally {
           bitmap.recycle() //alter the yolo inference clean the bitmap heap ram memory
@@ -163,20 +163,15 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
       bitmap.recycle() //busy yolo inference no memory leak
     }
   }
-
   private fun handleVideoFrame(videoFrame: VideoFrame) { //execute every time a frame arrive from the camera stream
     val bitmap = YuvToBitmapConverter.convert(videoFrame.buffer, videoFrame.width, videoFrame.height) //for visualization needed YuvToBitmapConverter
-    //PROBLEM we have to send the same bitmap to two diff owners -> presentationQueue + frameChannel
-    //Race Condition is possible -> we need to execute a trade off. with a copy operation more memory heap RAM and cpu usage but safe code(no more race conditions)
+    //PROBLEM we have to send the same bitmap to two diff owners -> presentationQueue + frameChannel (share the pointer/reference in memory)
+    //Race Condition is possible -> we need to execute a trade off. with a copy operation more memory heap RAM and cpu usage but safe code (no more race conditions)
     if (bitmap != null) {
-
       if (frameCounter++ % FRAME_SKIP == 0) { //trade off do not manage all the frames
         if (::frameChannel.isInitialized && !frameChannel.isClosedForSend) {
           val safeBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, false)
-          //val safeBitmap = Bitmap.createScaledBitmap(bitmap, 640, 640, false) -> can be interesting
-          //val safeBitmap = Bitmap.createScaledBitmap(bitmap, 320, 320, false) -> can be also interesting
-          frameChannel.trySend(safeBitmap)
-          //frameChannel.trySend(bitmap)
+          frameChannel.trySend(safeBitmap)  //send the bitmap even into the frame channel for yolo
         }
       }
       presentationQueue?.enqueue(bitmap, videoFrame.presentationTimeUs)
@@ -186,7 +181,7 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
   }
 
   fun stopStream() {
-    viewModelScope.launch {
+    viewModelScope.launch { //asynch by corutine, could be blocking
 
       presentationQueue?.stop()
       presentationQueue = null
@@ -206,8 +201,7 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
       Log.d(TAG, "stopstream process END UP")
     }
   }
-  //////////////////////////////////////////////////////////////////////////////////////////////////
-  //////////////////////////////////////////////////////////////////////////////////////////////////
+  // Under the threshold I do not have touch any code
   //////////////////////////////////////////////////////////////////////////////////////////////////
   fun capturePhoto() {
     if (uiState.value.isCapturing) {
