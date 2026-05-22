@@ -171,15 +171,26 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
       if (frameCounter++ % FRAME_SKIP == 0) { //trade off do not manage all the frames
         if (::frameChannel.isInitialized && !frameChannel.isClosedForSend) {
           val safeBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, false)
-          frameChannel.trySend(safeBitmap)  //send the bitmap even into the frame channel for yolo
+          //frameChannel.trySend(safeBitmap)  //send the bitmap even into the frame channel for yolo
+          val result = frameChannel.trySend(safeBitmap)
+
+          if (result.isFailure) {
+            safeBitmap.recycle()
+          }
         }
       }
-      presentationQueue?.enqueue(bitmap, videoFrame.presentationTimeUs)
+      //presentationQueue?.enqueue(bitmap, videoFrame.presentationTimeUs)
+      val queue = presentationQueue
+      if (queue != null) {
+        queue.enqueue(bitmap, videoFrame.presentationTimeUs)
+      } else {
+        bitmap.recycle()
+      }
     } else {
       Log.d(TAG, "handleVideoFrame fail")
     }
   }
-
+  /*
   fun stopStream() {
     viewModelScope.launch { //asynch by corutine, could be blocking
 
@@ -194,11 +205,68 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
           bitmap.recycle()
         }
       }
-      yoloJob?.cancelAndJoin()
-      yoloJob = null
+
       _uiState.update { INITIAL_STATE }
 
+      hasDetectedObject = false
+      _detectedObjects.value = emptyList()
+
+      videoJob?.cancelAndJoin()
+      videoJob = null
+
+      stateJob?.cancel()
+      stateJob = null
+
+      presentationQueue?.stop()
+      presentationQueue = null
+
       Log.d(TAG, "stopstream process END UP")
+    }
+  }
+
+   */
+  fun stopStream() {
+    viewModelScope.launch {
+      try {
+        videoJob?.cancelAndJoin()
+        videoJob = null
+        stateJob?.cancel()
+        stateJob = null
+        if (::frameChannel.isInitialized) {
+          frameChannel.close()
+          frameChannel.cancel()
+          for (bitmap in frameChannel) {
+            if (!bitmap.isRecycled) {
+              bitmap.recycle()
+            }
+          }
+        }
+        yoloJob?.cancelAndJoin()
+        yoloJob = null
+
+        presentationQueue?.stop()
+        presentationQueue = null
+
+        frameCounter = 0
+
+        isYoloRunning = false
+        hasDetectedObject = false
+        lastState = null
+        lastYoloTime = 0L
+
+        _motionState.value = MotionDetector.State.STILL
+        _detectedObjects.value = emptyList()
+
+        _uiState.update {
+          INITIAL_STATE.copy(videoFrame = null)
+        }
+
+        Log.d(TAG, "stopstream process END UP")
+
+      } catch (e: Exception) {
+
+        Log.e(TAG, "stopStream error", e)
+      }
     }
   }
   // Under the threshold I do not have touch any code

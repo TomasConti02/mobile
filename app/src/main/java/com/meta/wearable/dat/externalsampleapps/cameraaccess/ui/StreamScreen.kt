@@ -56,7 +56,7 @@ import androidx.compose.ui.graphics.nativeCanvas
 //@compose function and not a class, used to show up the wearable video stream
 //it is a view UI part of Jetpack Compose
 // used into Activity or navigation graph
-//To the stream screen as allways the WearablesViewModel but also streamViewModel for the stream coordination
+//To the stream screen as always the WearablesViewModel but also streamViewModel for the stream coordination
 @Composable
 fun StreamScreen(
     wearablesViewModel: WearablesViewModel,
@@ -69,67 +69,50 @@ fun StreamScreen(
     ),
 ) {
     val streamUiState by streamViewModel.uiState.collectAsStateWithLifecycle()
-    val motionState by streamViewModel.motionState.collectAsStateWithLifecycle()
-    val detectedObjects by streamViewModel.detectedObjects.collectAsStateWithLifecycle()
-
+    val motionState by streamViewModel.motionState.collectAsStateWithLifecycle() //added track the view state and show on the view
+    val detectedObjects by streamViewModel.detectedObjects.collectAsStateWithLifecycle() //added track the detected objects and boxes shapes
     LaunchedEffect(Unit) {
         streamViewModel.startStream()
     }
-
     Box(modifier = modifier.fillMaxSize()) {
-
         streamUiState.videoFrame?.let { videoFrame ->
-
             Box(modifier = Modifier.fillMaxSize()) {
-
-                // 🎥 VIDEO
                 Image(
                     bitmap = videoFrame.asImageBitmap(),
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
                 )
-
-                // 🎯 OVERLAY BOXES
                 Canvas(modifier = Modifier.fillMaxSize()) {
-
                     val frameWidth = videoFrame.width.toFloat()
                     val frameHeight = videoFrame.height.toFloat()
-
                     val scaleX = size.width / frameWidth
                     val scaleY = size.height / frameHeight
-
                     detectedObjects.forEach { detection ->
-
                         val rect = detection.boundingBox
-
                         val left = rect.left * scaleX
                         val top = rect.top * scaleY
                         val right = rect.right * scaleX
                         val bottom = rect.bottom * scaleY
-
                         val boxColor = when {
                             detection.confidence > 0.8f -> Color.Green
                             detection.confidence > 0.5f -> Color.Yellow
                             else -> Color.Red
                         }
-
-                        // 🟥 BOX
+                        // box
                         drawRect(
                             color = boxColor,
                             topLeft = Offset(left, top),
                             size = Size(right - left, bottom - top),
                             style = Stroke(width = 4f)
                         )
-
-                        // 🏷 LABEL
+                        //labels
                         drawIntoCanvas { canvas ->
                             val paint = android.graphics.Paint().apply {
                                 color = android.graphics.Color.WHITE
                                 textSize = 40f
                                 isFakeBoldText = true
                             }
-
                             canvas.nativeCanvas.drawText(
                                 "id=${detection.classId} ${(detection.confidence * 100).toInt()}%",
                                 left,
@@ -141,10 +124,8 @@ fun StreamScreen(
                 }
             }
         }
-
-        // 🔝 STATO MOVIMENTO
         Row(
-            modifier = Modifier
+            modifier = Modifier //draw the state
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
                 .statusBarsPadding()
@@ -163,7 +144,6 @@ fun StreamScreen(
             )
         }
 
-        // 📦 DEBUG LIST
         if (detectedObjects.isNotEmpty()) {
             Column(
                 modifier = Modifier
@@ -179,15 +159,11 @@ fun StreamScreen(
                 }
             }
         }
-
-        // ⏳ LOADING
         if (streamUiState.streamSessionState == StreamSessionState.STARTING) {
             CircularProgressIndicator(
                 modifier = Modifier.align(Alignment.Center)
             )
         }
-
-        // ⬇️ CONTROLLI
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -218,8 +194,6 @@ fun StreamScreen(
             }
         }
     }
-
-    // 📤 SHARE
     streamUiState.capturedPhoto?.let { photo ->
         if (streamUiState.isShareDialogVisible) {
             SharePhotoDialog(
@@ -233,106 +207,3 @@ fun StreamScreen(
         }
     }
 }
-/*
-@Composable
-fun StreamScreen( wearablesViewModel: WearablesViewModel,  modifier: Modifier = Modifier,
-    streamViewModel: StreamViewModel = viewModel(factory = StreamViewModel.Factory(application = (LocalActivity.current as ComponentActivity).application, wearablesViewModel = wearablesViewModel,),), )
-    {
-    //streamViewModel -> manage the camera frame frm the hardware and send to the view StreamScreen for showing up
-    // observed states
-    // for each change update UI view
-    // Flow + lifecycle-aware collection is used
-    val streamUiState by streamViewModel.uiState.collectAsStateWithLifecycle()
-
-    val motionState by streamViewModel.motionState.collectAsStateWithLifecycle() // ADDED
-        //data class Detection(val classId: Int, val confidence: Float, val boundingBox: RectF)
-        //_detectedObject = MutableStateFlow<Detection?>(null)
-    val detectedObject by streamViewModel.detectedObject.collectAsStateWithLifecycle() //ADDED, it is a list of Detection from the model now
-
-    //launch a Coroutine executing in parallel with the model for the data stream
-    LaunchedEffect(Unit) { streamViewModel.startStream() } //FIRST IN FIRST START THE STREAM BY THE MODEL OF THE STREAM
-    Box(modifier = modifier.fillMaxSize()) {
-        //when the model receive a new frame update the ui and this trigger the stream screen state
-        streamUiState.videoFrame?.let { videoFrame -> //receive all the video fream for the ui streamUiState
-            key(streamUiState.videoFrameCount) { //used for stream refresh when the frame change
-                Image(
-                    bitmap = videoFrame.asImageBitmap(), //convert the bitmap frame into ImageBitmap
-                    contentDescription = stringResource(R.string.live_stream),
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                )
-            }
-            // Overlay del testo (posizionato sopra l'immagine)
-            Text(
-                text = when (motionState) {
-                    MotionDetector.State.MOVING -> "🔴 MOVING"
-                    MotionDetector.State.STILL  -> "🟡 STILL"
-                    MotionDetector.State.STABLE -> "🟢 STABLE"
-                },
-                color = Color.White,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(16.dp),
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
-            )
-            if (detectedObject != null) {
-                Text(
-                    text = "📷 $detectedObject",
-                    color = Color.Yellow,
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(top = 56.dp, start = 16.dp),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-        }
-
-        if (streamUiState.streamSessionState == StreamSessionState.STARTING) {
-            CircularProgressIndicator(
-                modifier = Modifier.align(Alignment.Center),
-            )
-        }
-
-        Box(modifier = Modifier.fillMaxSize().padding(all = 24.dp)) {
-            Row(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .navigationBarsPadding()
-                    .fillMaxWidth()
-                    .height(56.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                SwitchButton(
-                    label = stringResource(R.string.stop_stream_button_title),
-                    onClick = {
-                        streamViewModel.stopStream()
-                        wearablesViewModel.navigateToDeviceSelection()
-                    },
-                    isDestructive = true,
-                    modifier = Modifier.weight(1f),
-                )
-
-                CaptureButton(
-                    onClick = { streamViewModel.capturePhoto() },
-                )
-            }
-        }
-    }
-
-    streamUiState.capturedPhoto?.let { photo ->
-        if (streamUiState.isShareDialogVisible) {
-            SharePhotoDialog(
-                photo = photo,
-                onDismiss = { streamViewModel.hideShareDialog() },
-                onShare = { bitmap ->
-                    streamViewModel.sharePhoto(bitmap)
-                    streamViewModel.hideShareDialog()
-                },
-            )
-        }
-    }
-}
-*/
