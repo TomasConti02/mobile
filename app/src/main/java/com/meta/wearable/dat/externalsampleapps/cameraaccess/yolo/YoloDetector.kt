@@ -191,30 +191,11 @@ class YoloDetector(private val context: Context, modelFilename: String = "yolov8
             return emptyList()
         }
     }
-//////////////////////////////////////////////////////////////////////////////////////////////
-    private fun saveCrop(fullBitmap: Bitmap, detection: Detection) {
-        var croppedBitmap: Bitmap? = null
-        try {
-            val rect = detection.boundingBox
-            val left = rect.left.toInt().coerceIn(0, fullBitmap.width - 1)
-            val top = rect.top.toInt().coerceIn(0, fullBitmap.height - 1)
-            val width = rect.width().toInt().coerceAtMost(fullBitmap.width - left)
-            val height = rect.height().toInt().coerceAtMost(fullBitmap.height - top)
-
-            if (width > 0 && height > 0) {
-                croppedBitmap = Bitmap.createBitmap(fullBitmap, left, top, width, height)
-                saveDetectionToDownloads(context, croppedBitmap, "${detection.classId}")
-            }
-        } catch (e: Exception) {
-            Log.e("YoloDetector", "Save failed", e)
-        } finally {
-            croppedBitmap?.recycle()
-        }
-    }
     private fun extractDetections(output: Array<FloatArray>, imgW: Int, imgH: Int): List<Detection> {
         val detections = mutableListOf<Detection>()
-        //input shape image 540x960, the yolo activation is 640x640 (the output is based on this scale)
+        //input shape image 540x960, the yolo activation is 640x640 (the output based on this scale)
         //i need scale factors to bring back the coordinate to the original ones
+        //map yolo pixel position in the original images
         val scaleX = imgW.toFloat() / inputSize
         val scaleY = imgH.toFloat() / inputSize
         //for each output box we get an items probability for each dataset COCO classes
@@ -224,7 +205,7 @@ class YoloDetector(private val context: Context, modelFilename: String = "yolov8
             var classId = -1
             for (c in 0 until numClasses) { // for each blocks check the class probability distribution
                 val score = output[c + 4][i]
-                if (score > maxClassConf) {
+                if (score > maxClassConf) { // keep the most probable class caming from the box
                     maxClassConf = score
                     classId = c
                 }
@@ -239,7 +220,9 @@ class YoloDetector(private val context: Context, modelFilename: String = "yolov8
                 val realW = w * inputSize * scaleX
                 val realH = h * inputSize * scaleY
                 //i don't want items outside the receptive field of the camera
+                // MY FILTERING DECISION
                 if (realW >= 100f && realH >= 100f) { //try to filter outliers items boxes
+                    //extract the box shape and the box center
                     val realX = cx * inputSize * scaleX
                     val realY = cy * inputSize * scaleY
                     val left = (realX - realW / 2)
@@ -258,11 +241,13 @@ class YoloDetector(private val context: Context, modelFilename: String = "yolov8
     private fun nonMaxSuppression(detections: List<Detection>): List<Detection> { //algorithm for box detection filtering (box overlapping ecc)
         if (detections.isEmpty()) return emptyList()
         //if there are many overlapped box with a sorting operation keep the better one
-        val sorted = detections.sortedByDescending { it.confidence } //sort for box confidence
+        val sorted = detections.sortedByDescending { it.confidence } //sort for box confidence O(N log N)
         val result = mutableListOf<Detection>()
         for (det in sorted) {
             var keep = true
             for (res in result) {
+                //check only between box belong to the same class
+                //iou evaluate the overlap
                 if (det.classId == res.classId && iou(det.boundingBox, res.boundingBox) > iouThreshold) {
                     //if (iou(det.boundingBox, res.boundingBox) > iouThreshold) {
                     keep = false
@@ -288,14 +273,6 @@ class YoloDetector(private val context: Context, modelFilename: String = "yolov8
         val box2Area = (box2.right - box2.left) * (box2.bottom - box2.top)
         return interArea / (box1Area + box2Area - interArea)
     }
-
-    //from the documentation, open and load the model
-    fun loadModelFile(context: Context, modelName: String): MappedByteBuffer {
-        val fileDescriptor = context.assets.openFd(modelName)
-        val inputStream = FileInputStream(fileDescriptor.fileDescriptor)
-        val fileChannel = inputStream.channel
-        return fileChannel.map(FileChannel.MapMode.READ_ONLY, fileDescriptor.startOffset, fileDescriptor.declaredLength)
-    }
     fun close() {
         Log.d("YoloDetector", "Inizio rilascio risorse dell'interprete")
         try {
@@ -314,6 +291,38 @@ class YoloDetector(private val context: Context, modelFilename: String = "yolov8
             Log.e("YoloDetector", "Errore durante la chiusura: ${e.message}")
         }
     }
+    //from the documentation, open and load the model
+    fun loadModelFile(context: Context, modelName: String): MappedByteBuffer {
+        val fileDescriptor = context.assets.openFd(modelName)
+        val inputStream = FileInputStream(fileDescriptor.fileDescriptor)
+        val fileChannel = inputStream.channel
+        return fileChannel.map(FileChannel.MapMode.READ_ONLY, fileDescriptor.startOffset, fileDescriptor.declaredLength)
+    }
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    private fun saveCrop(fullBitmap: Bitmap, detection: Detection) {
+        var croppedBitmap: Bitmap? = null
+        try {
+            val rect = detection.boundingBox
+            val left = rect.left.toInt().coerceIn(0, fullBitmap.width - 1)
+            val top = rect.top.toInt().coerceIn(0, fullBitmap.height - 1)
+            val width = rect.width().toInt().coerceAtMost(fullBitmap.width - left)
+            val height = rect.height().toInt().coerceAtMost(fullBitmap.height - top)
+
+            if (width > 0 && height > 0) {
+                croppedBitmap = Bitmap.createBitmap(fullBitmap, left, top, width, height)
+                saveDetectionToDownloads(context, croppedBitmap, "${detection.classId}")
+            }
+        } catch (e: Exception) {
+            Log.e("YoloDetector", "Save failed", e)
+        } finally {
+            croppedBitmap?.recycle()
+        }
+    }
+
+
+
+
 }
 ////////////////////////////////////////////////////////////////////////////////////
 fun saveDetectionToDownloads(context: Context, bitmap: Bitmap, className: String) {

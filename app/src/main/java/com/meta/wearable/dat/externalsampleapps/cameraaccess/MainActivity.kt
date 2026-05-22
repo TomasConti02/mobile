@@ -46,16 +46,19 @@ import kotlinx.coroutines.launch
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.yolo.*
 // https://wearables.developer.meta.com/docs/reference/android/dat/0.4/com_meta_wearable_dat_core_wearables
 // https://wearables.developer.meta.com/docs/reference/android/dat/0.4
-class MainActivity : ComponentActivity() { //one activity, the main
 
+
+//the project is based on only one activity executed by the main / ui thread,
+// only one allow to access to UI because libraries are not thread save
+class MainActivity : ComponentActivity() {
   companion object {
-    val PERMISSIONS: Array<String> = arrayOf(BLUETOOTH, BLUETOOTH_CONNECT, INTERNET)//basic permissions
+    val PERMISSIONS: Array<String> = arrayOf(BLUETOOTH, BLUETOOTH_CONNECT, INTERNET)// permissions basic for wearable
   }
     private val TAG = "MAIN"
   val viewModel: WearablesViewModel by viewModels() //declare the WearablesViewModel with -> by -> jetpack-property delegation
   private val permissionCheckLauncher = registerForActivityResult(RequestMultiplePermissions()) { permissionsResult -> //check about the basic permissions
         viewModel.onPermissionsResult(permissionsResult) {  //viewModel exec a double permission check
-          Wearables.initialize(this) // Initialize the SDK
+          Wearables.initialize(this) // Initialize the SDK entry point
         }
       }
   private var permissionContinuation: CancellableContinuation<PermissionStatus>? = null
@@ -66,38 +69,35 @@ class MainActivity : ComponentActivity() { //one activity, the main
         permissionContinuation?.resume(permissionStatus)
         permissionContinuation = null
       }
-  // Convenience method to make a permission request in a sequential manner
 // Uses a Mutex to ensure requests are processed one at a time, preventing race conditions
   suspend fun requestWearablesPermission(permission: Permission): PermissionStatus {
     return permissionMutex.withLock { //atomicity execution, serializable and not thread concurrency, only one process at time execute requestWearablesPermission
-        suspendCancellableCoroutine { continuation -> permissionContinuation = continuation //saving the corrent state, saving the corouting reference
-        continuation.invokeOnCancellation { permissionContinuation = null } //if the coruting wait is interrupt not panic and empty the permissionContinuation
+        suspendCancellableCoroutine { continuation -> permissionContinuation = continuation //saving the coroutine state at the call
+        continuation.invokeOnCancellation { permissionContinuation = null }
         permissionsResultLauncher.launch(permission) //open the meta AI app interface over my screen
       }
     }
   }
 
 //executed on application creation
-  override fun onCreate(savedInstanceState: Bundle?) {
-    super.onCreate(savedInstanceState) //set the standard android conf
+  override fun onCreate(savedInstanceState: Bundle?) { // follow the main / ui activity life cycle (the only one in the project )
+    super.onCreate(savedInstanceState)
     enableEdgeToEdge()//view option, cover all the screen
     setContent {  CameraAccessScaffold(viewModel = viewModel, onRequestWearablesPermission = ::requestWearablesPermission,) } //set he UI Scaffold passing the WearablesViewModel
-    /*
-    lifecycleScope.launch { //corutine for singleton asincrono lazy, yolo model loading
-        YoloProvider.getAsync(applicationContext).await()
-    }
-     */
+    //launch the model gpu allocation. Eager initialization because take time load the model on mobile gpu
     lifecycleScope.launch {
         YoloProvider.get(applicationContext)
     }
     Log.d(TAG, "main thread is started with all the resources")
   }
+    //following the main activity life cycle as well
     override fun onDestroy() {
         super.onDestroy()
         YoloProvider.close() // deallocate the resources
         Log.d(TAG, "main thread closed with all the resources")
     }
-  //executed on application start
+
+  //executed on application start, following the main activity life cycle as well
   override fun onStart() { //on start check internet and bluetooth permissions
     super.onStart()
     permissionCheckLauncher.launch(PERMISSIONS)//at every start check the basic permission if they are still available
