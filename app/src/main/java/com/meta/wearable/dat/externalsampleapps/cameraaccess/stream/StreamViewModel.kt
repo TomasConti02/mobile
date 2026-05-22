@@ -82,12 +82,18 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
       yoloDetector = YoloProvider.get(getApplication()) //in case of block runtime wake up corutine as soon as the instance is ready
       Log.d(TAG, "yolo detector initialized")
     }
+    streamSession?.close()
+    streamSession = null
+
     videoJob?.cancel()
     stateJob?.cancel()
+
     presentationQueue?.stop()
     presentationQueue = null
+
     frameCounter = 0
     frameChannel = Channel<Bitmap>(Channel.CONFLATED) //keep only last bitmap frame (good for buffer efficiency), overwrite if too slow
+
     yoloJob = viewModelScope.launch(Dispatchers.Default) { //corutine exec on Dispatchers.Default thread pool for cpu intensive operation
       try {
         for (bitmap in frameChannel) { //corutine manage one bitmap at time, wait if there is no one
@@ -117,6 +123,7 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
         Log.d(TAG, "YOLO Job cancelled")
       }
     }
+
     val queue = PresentationQueue(
             bufferDelayMs = 100L,
             maxQueueSize = 15,
@@ -191,86 +198,64 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
     }
   }
   /*
+  * executing a complete stop streaming and resource cleaning is IMPORTANT to avoid any king of problem after the stream stop
+  * function SYNCH and blocking for the view BUT it is ok, even the original code exec a synch stream stop for the view */
   fun stopStream() {
-    viewModelScope.launch { //asynch by corutine, could be blocking
-
-      presentationQueue?.stop()
-      presentationQueue = null
-
-      videoJob?.cancelAndJoin()
-      videoJob = null
-      if (::frameChannel.isInitialized) {
-        frameChannel.close()
-        for (bitmap in frameChannel) {
-          bitmap.recycle()
-        }
-      }
-
-      _uiState.update { INITIAL_STATE }
-
-      hasDetectedObject = false
-      _detectedObjects.value = emptyList()
-
-      videoJob?.cancelAndJoin()
+    Log.d(TAG, "stopStream started")
+    try {
+      videoJob?.cancel()
       videoJob = null
 
       stateJob?.cancel()
       stateJob = null
 
+      yoloJob?.cancel()
+      yoloJob = null
+
       presentationQueue?.stop()
       presentationQueue = null
 
-      Log.d(TAG, "stopstream process END UP")
-    }
-  }
-
-   */
-  fun stopStream() {
-    viewModelScope.launch {
-      try {
-        videoJob?.cancelAndJoin()
-        videoJob = null
-        stateJob?.cancel()
-        stateJob = null
-        if (::frameChannel.isInitialized) {
-          frameChannel.close()
-          frameChannel.cancel()
-          for (bitmap in frameChannel) {
-            if (!bitmap.isRecycled) {
-              bitmap.recycle()
-            }
-          }
-        }
-        yoloJob?.cancelAndJoin()
-        yoloJob = null
-
-        presentationQueue?.stop()
-        presentationQueue = null
-
-        frameCounter = 0
-
-        isYoloRunning = false
-        hasDetectedObject = false
-        lastState = null
-        lastYoloTime = 0L
-
-        _motionState.value = MotionDetector.State.STILL
-        _detectedObjects.value = emptyList()
-
-        _uiState.update {
-          INITIAL_STATE.copy(videoFrame = null)
-        }
-
-        Log.d(TAG, "stopstream process END UP")
-
-      } catch (e: Exception) {
-
-        Log.e(TAG, "stopStream error", e)
+      //   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      streamSession?.let { session ->
+        Log.d(TAG, "StreamSession hardware closed")
+        session.close() // clear the buffer of the device (AVOID MANY SCREEN BLOCKING PROBLEMS)
       }
+      streamSession = null
+
+      if (::frameChannel.isInitialized) {
+        frameChannel.close()
+        frameChannel.cancel()
+        var leftover = frameChannel.tryReceive().getOrNull()
+        while (leftover != null) {
+          leftover.recycle()
+          leftover = frameChannel.tryReceive().getOrNull()
+        }
+      }
+
+      frameCounter = 0
+      isYoloRunning = false
+      hasDetectedObject = false
+      lastState = null
+      lastYoloTime = 0L
+
+      _motionState.value = MotionDetector.State.STILL
+      _detectedObjects.value = emptyList()
+
+      _uiState.update {
+        INITIAL_STATE.copy(videoFrame = null)
+      }
+      motionDetector.clear()
+      Log.d(TAG, "stopstream process END UP ")
+
+    } catch (e: Exception) {
+      Log.e(TAG, "stopStream ERROR", e)
     }
   }
-  // Under the threshold I do not have touch any code
-  //////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////Under this threshold I do not have touch any code /////////////////////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   fun capturePhoto() {
     if (uiState.value.isCapturing) {
       Log.d(TAG, "Photo capture already in progress, ignoring request")
@@ -450,3 +435,158 @@ class StreamViewModel( application: Application, private val wearablesViewModel:
 
 
 }
+
+/*
+    stateJob = viewModelScope.launch {
+      streamSession.state.collect { currentState ->
+        val prevState = _uiState.value.streamSessionState
+        _uiState.update { it.copy(streamSessionState = currentState) }
+
+        // Se lo stato diventa STOPPED, significa che l'hardware è spento con successo
+        if (currentState != prevState && currentState == StreamSessionState.STOPPED) {
+          // Avviamo la navigazione in sicurezza da qui
+          wearablesViewModel.navigateToDeviceSelection()
+        }
+      }
+    }*/
+/*
+  fun stopStream() {
+    viewModelScope.launch { //asynch by corutine, could be blocking
+
+      presentationQueue?.stop()
+      presentationQueue = null
+
+      videoJob?.cancelAndJoin()
+      videoJob = null
+      if (::frameChannel.isInitialized) {
+        frameChannel.close()
+        for (bitmap in frameChannel) {
+          bitmap.recycle()
+        }
+      }
+
+      _uiState.update { INITIAL_STATE }
+
+      hasDetectedObject = false
+      _detectedObjects.value = emptyList()
+
+      videoJob?.cancelAndJoin()
+      videoJob = null
+
+      stateJob?.cancel()
+      stateJob = null
+
+      presentationQueue?.stop()
+      presentationQueue = null
+
+      Log.d(TAG, "stopstream process END UP")
+    }
+  }
+
+   */
+
+
+/*
+ fun stopStream() {
+   viewModelScope.launch {
+     try {
+       videoJob?.cancelAndJoin()
+       videoJob = null
+
+       stateJob?.cancel()
+       stateJob = null
+
+       if (::frameChannel.isInitialized) {
+         frameChannel.close()
+         frameChannel.cancel()
+         for (bitmap in frameChannel) {
+           if (!bitmap.isRecycled) {
+             bitmap.recycle()
+           }
+         }
+       }
+       yoloJob?.cancelAndJoin()
+       yoloJob = null
+
+       presentationQueue?.stop()
+       presentationQueue = null
+
+       frameCounter = 0
+
+       isYoloRunning = false
+       hasDetectedObject = false
+       lastState = null
+       lastYoloTime = 0L
+
+       _motionState.value = MotionDetector.State.STILL
+       _detectedObjects.value = emptyList()
+
+       _uiState.update {
+         INITIAL_STATE.copy(videoFrame = null)
+       }
+
+       Log.d(TAG, "stopstream process END UP")
+
+     } catch (e: Exception) {
+
+       Log.e(TAG, "stopStream error", e)
+     }
+   }
+ }
+  */
+/*
+fun stopStream() {
+  Log.d(TAG, "stopStream iniziato")
+
+  // 1. Cancelliamo i Job immediatamente (Senza Join per non bloccare)
+  videoJob?.cancel()
+  videoJob = null
+
+  // Cancelliamo lo stateJob così non intercetta cambi di stato spuri durante la pulizia
+  stateJob?.cancel()
+  stateJob = null
+
+  yoloJob?.cancel()
+  yoloJob = null
+
+  // 2. Pulizia canali e memoria
+  if (::frameChannel.isInitialized) {
+    frameChannel.close()
+    frameChannel.cancel()
+    // Svuota i residui rimasti nel buffer conflated
+    var leftover = frameChannel.tryReceive().getOrNull()
+    while (leftover != null) {
+      leftover.recycle()
+      leftover = frameChannel.tryReceive().getOrNull()
+    }
+  }
+
+  // 3. Ferma la coda video
+  presentationQueue?.stop()
+  presentationQueue = null
+
+  // 4. Se la sessione dell'SDK Meta DAT ha un metodo di chiusura, chiamalo qui
+  // streamSession?.stop() o simile, se previsto dall'SDK
+  streamSession = null
+
+  // 5. Reset completo degli stati della UI
+  frameCounter = 0
+  isYoloRunning = false
+  hasDetectedObject = false
+  lastState = null
+  lastYoloTime = 0L
+
+  _motionState.value = MotionDetector.State.STILL
+  _detectedObjects.value = emptyList()
+
+  _uiState.update {
+    INITIAL_STATE.copy(videoFrame = null)
+  }
+
+  Log.d(TAG, "stopstream process END UP")
+
+  // 6. Avvisa la UI di cambiare schermata ora che tutto è pulito
+  wearablesViewModel.navigateToDeviceSelection()
+}
+
+ */

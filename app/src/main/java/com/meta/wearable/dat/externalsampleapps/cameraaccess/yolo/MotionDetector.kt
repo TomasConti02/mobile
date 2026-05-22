@@ -74,6 +74,15 @@ class MotionDetector(
 
         return updateState()
     }
+    fun clear() { // clear the monitoring stream series state in the stop stream
+        Log.d("MotionDetector", "Reset monitor detector state")
+        history.clear()
+        prevGray?.setTo(Scalar(0.0))
+        prevGray = null
+        frameCount = 0
+        stillStartTime = 0L
+        currentState = State.MOVING
+    }
 
     private fun updatePrevGray() {
         if (prevGray == null) {

@@ -58,7 +58,7 @@ import androidx.compose.ui.graphics.nativeCanvas
 // used into Activity or navigation graph
 //To the stream screen as always the WearablesViewModel but also streamViewModel for the stream coordination
 @Composable
-fun StreamScreen(
+fun StreamScreen( // EXECUTED BY THE MAIN / UI THREAD because part of the only one activity
     wearablesViewModel: WearablesViewModel,
     modifier: Modifier = Modifier,
     streamViewModel: StreamViewModel = viewModel(
@@ -71,8 +71,8 @@ fun StreamScreen(
     val streamUiState by streamViewModel.uiState.collectAsStateWithLifecycle()
     val motionState by streamViewModel.motionState.collectAsStateWithLifecycle() //added track the view state and show on the view
     val detectedObjects by streamViewModel.detectedObjects.collectAsStateWithLifecycle() //added track the detected objects and boxes shapes
-    LaunchedEffect(Unit) {
-        streamViewModel.startStream()
+    LaunchedEffect(Unit) { //execute by a corutine with the same scope/life cycle of the app
+        streamViewModel.startStream() // STOP THE STREAM
     }
     Box(modifier = modifier.fillMaxSize()) {
         streamUiState.videoFrame?.let { videoFrame ->
@@ -84,10 +84,12 @@ fun StreamScreen(
                     contentScale = ContentScale.Crop
                 )
                 Canvas(modifier = Modifier.fillMaxSize()) {
+
                     val frameWidth = videoFrame.width.toFloat()
                     val frameHeight = videoFrame.height.toFloat()
                     val scaleX = size.width / frameWidth
                     val scaleY = size.height / frameHeight
+
                     detectedObjects.forEach { detection ->
                         val rect = detection.boundingBox
                         val left = rect.left * scaleX
@@ -178,12 +180,24 @@ fun StreamScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                /*
+                SwitchButton(
+                    label = stringResource(R.string.stop_stream_button_title),
+                    onClick = { //synch, can be blocking
+                        streamViewModel.stopStream() // STOP THE STREAM
+                        wearablesViewModel.navigateToDeviceSelection()
+                    },
+                    isDestructive = true,
+                    modifier = Modifier.weight(1f),
+                )*/
+
                 SwitchButton(
                     label = stringResource(R.string.stop_stream_button_title),
                     onClick = {
-                        streamViewModel.stopStream()
+                        streamViewModel.stopStream() //synch
                         wearablesViewModel.navigateToDeviceSelection()
                     },
+
                     isDestructive = true,
                     modifier = Modifier.weight(1f),
                 )
