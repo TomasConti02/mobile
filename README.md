@@ -59,10 +59,12 @@ Testing was performed on a Samsung device (`SM_A566B`).
 CPU and memory metrics were collected using the Android Studio Profiler.
 
 <p align="center">
-  <img src="sample/metrics/cpu.png" width="45%" alt="CPU Usage" />
-  <img src="sample/metrics/memory.png" width="45%" alt="Memory Usage" />
+  <img src="sample/metrics/cpu.png" width="70%" alt="CPU Usage" />
 </p>
 
+<p align="center">
+  <img src="sample/metrics/memory.png" width="50%" alt="Memory Usage" />
+</p>
 
 
 ## /MainActivity
