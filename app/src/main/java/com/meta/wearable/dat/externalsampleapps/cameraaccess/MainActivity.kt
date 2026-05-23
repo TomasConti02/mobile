@@ -54,7 +54,7 @@ class MainActivity : ComponentActivity() {
   companion object {
     val PERMISSIONS: Array<String> = arrayOf(BLUETOOTH, BLUETOOTH_CONNECT, INTERNET)// permissions basic for wearable
   }
-    private val TAG = "MAIN"
+    private val TAG = "MAIN_"
   val viewModel: WearablesViewModel by viewModels() //declare the WearablesViewModel with -> by -> jetpack-property delegation
   private val permissionCheckLauncher = registerForActivityResult(RequestMultiplePermissions()) { permissionsResult -> //check about the basic permissions
         viewModel.onPermissionsResult(permissionsResult) {  //viewModel exec a double permission check

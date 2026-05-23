@@ -41,7 +41,7 @@ To integrate the plugins, the following files were modified:
 
 All plugin details are described in the `README.md` file inside the `/yolo` directory.
 
-## MainActivity
+## /MainActivity
 
 Application entry point. The app uses a single activity running on the main/UI thread, since some libraries are not thread-safe and require direct UI access. No activity-switching intents are used.
 
@@ -53,6 +53,15 @@ Application entry point. The app uses a single activity running on the main/UI t
 The model is initialized at startup because loading weights into the mobile GPU is an I/O-intensive blocking operation.
 
 ## /stream/StreamViewModel
+
+This component acts as the view model of the application and manages the embedding and execution flow of the computer vision model.
+
+The frame stream is filtered through a `MotionDetector` component, while the YOLO inference triggering logic is handled inside the `StreamViewModel`.
+
+Stopping the stream is a critical operation and is handled carefully to avoid buffering issues and race conditions. A frame channel is used to continuously overwrite and keep only the latest valid frame for monitoring and analysis. Once the monitor detects a stable scene, the YOLO inference process is launched.
+
+All state changes and inference results are propagated back to the UI, ensuring that the view is updated reactively.
+
 ## /ui/StreamScreen
 
 Since the application uses a single activity, UI state changes are managed following the Jetpack Compose architecture.
