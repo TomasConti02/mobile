@@ -24,8 +24,13 @@ Something new:
 - Streaming scene stabilization aware [ plug in ]
 - YOLO obejct detection [ plug in ]
 
- 
- 
+YOLO tested on car class domanin because easy to do:
+ <p align="center">
+  <a href="sample/video_samples/test_model_embedding.mp4">
+    <img src="sample/metrics/presentation.jpeg" width="30%" alt="Application Demo" />
+  </a>
+</p>
+
 ## Application Architecture
 
 The codebase is based on the *meta-wearables-dat-android* project, with additional plugins integrated.
@@ -42,14 +47,13 @@ To integrate the plugins, the following files were modified:
 * `/ui/StreamScreen`
 
 All plugin details are described in the `README.md` file inside the `/yolo` directory.
-## Testing and Metrics
+## Testing, Metrics and Upload
 
 Check whether an Android device is connected via USB using:
 
 ```bash id="m9jv6p"
 adb devices -l
 ```
-
 Build and install the APK on the connected device with:
 
 ```bash id="b6c1tk"
@@ -57,6 +61,20 @@ Build and install the APK on the connected device with:
 ```
 
 Testing was performed on a Samsung device (`SM_A566B`).
+
+Convert a standard mobile camera video into a mock device-compatible format for testing purposes.
+A testing sample is already available in the `/sample` directory of the project.
+
+```bash id="j9s1za"
+ffmpeg -i test3.mp4 -c:v libx265 -c:a aac -tag:v hvc1 -vf "scale=540:960" test_mobility2.mov
+```
+
+Upload the generated sample to the mobile device for testing and lookup operations:
+
+```bash id="l2v8nd"
+adb push test_mobility2.mov /sdcard/Download/
+```
+
 
 Additional runtime metrics were collected directly from the device using the `top` command to monitor the application process:
 
@@ -89,9 +107,7 @@ Since the model is eagerly loaded into memory during startup, the memory graph s
   <img src="sample/metrics/memory.png" width="70%" alt="Memory Usage" />
 </p>
 
-Additional analysis with Android Studio Profiler did not reveal critical thread blocking or abnormal sleeping states.
-
-
+>Additional analysis with Android Studio Profiler did not reveal critical thread blocking or abnormal sleeping states.
 
 ## /MainActivity
 

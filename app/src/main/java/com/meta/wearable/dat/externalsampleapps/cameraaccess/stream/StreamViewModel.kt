@@ -49,7 +49,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.isActive // Opzionale, se usi ancora isActive
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.channels.consumeEach
-// ffmpeg -i test3.mp4 -c:v libx265 -c:a aac -tag:v hvc1 -vf "scale=540:960" test_mobility2.movclear
+// ffmpeg -i test3.mp4 -c:v libx265 -c:a aac -tag:v hvc1 -vf "scale=540:960" test_mobility2.mov
 // adb push test_mobility2.mov /sdcard/Download/
 class StreamViewModel( application: Application, private val wearablesViewModel: WearablesViewModel, ) : AndroidViewModel(application) {
   companion object {  private val TAG = "StreamViewModel"
