@@ -25,10 +25,8 @@ Something new:
 - YOLO obejct detection [ plug in ]
 
 YOLO tested on car class domanin because easy to do:
- <p align="center">
-  <a href="sample/video_samples/test_model_embedding.mp4">
-    <img src="sample/metrics/presentation.jpeg" width="30%" alt="Application Demo" />
-  </a>
+<p align="center">
+  <img src="sample/video_samples/demo_short.gif" width="30%" alt="Application Demo"/>
 </p>
 
 ## Application Architecture
