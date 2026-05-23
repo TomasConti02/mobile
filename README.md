@@ -40,6 +40,30 @@ To integrate the plugins, the following files were modified:
 * `/ui/StreamScreen`
 
 All plugin details are described in the `README.md` file inside the `/yolo` directory.
+## Testing and Metrics
+
+Check whether an Android device is connected via USB using:
+
+```bash
+adb devices -l
+```
+
+Build and install the APK on the connected device with:
+
+```bash
+./gradlew clean installDebug
+```
+
+Testing was performed on a Samsung device (`SM_A566B`).
+
+CPU and memory metrics were collected using the Android Studio Profiler.
+
+<p align="center">
+  <img src="sample/metrics/cpu.png" width="45%" alt="CPU Usage" />
+  <img src="sample/metrics/memory.png" width="45%" alt="Memory Usage" />
+</p>
+
+
 
 ## /MainActivity
 
