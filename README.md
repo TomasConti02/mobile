@@ -44,19 +44,21 @@ All plugin details are described in the `README.md` file inside the `/yolo` dire
 
 Check whether an Android device is connected via USB using:
 
-```bash
+```bash id="m9jv6p"
 adb devices -l
 ```
 
 Build and install the APK on the connected device with:
 
-```bash
+```bash id="b6c1tk"
 ./gradlew clean installDebug
 ```
 
 Testing was performed on a Samsung device (`SM_A566B`).
 
-CPU and memory metrics were collected using the Android Studio Profiler.
+CPU and memory metrics were collected using the Android Studio Profiler during activation of the stream detection feature.
+
+CPU execution remained stable without visible spikes. Since the model is eagerly loaded into memory during startup, the memory graph shows only a minimal increase during inference execution.
 
 <p align="center">
   <img src="sample/metrics/cpu.png" width="60%" alt="CPU Usage" />
@@ -65,6 +67,7 @@ CPU and memory metrics were collected using the Android Studio Profiler.
 <p align="center">
   <img src="sample/metrics/memory.png" width="70%" alt="Memory Usage" />
 </p>
+
 
 
 ## /MainActivity
