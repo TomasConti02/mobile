@@ -56,17 +56,38 @@ Build and install the APK on the connected device with:
 
 Testing was performed on a Samsung device (`SM_A566B`).
 
-CPU and memory metrics were collected using the Android Studio Profiler during activation of the stream detection feature.
+Additional runtime metrics were collected directly from the device using the `top` command to monitor the application process:
 
-CPU execution remained stable without visible spikes. Since the model is eagerly loaded into memory during startup, the memory graph shows only a minimal increase during inference execution.
+```bash id="z9fj2p"
+while true; do 
+  echo "$(date '+%Y-%m-%d %H:%M:%S') $(adb shell top -b -n 1 | grep "com.meta.wearable.dat.externalsampleapps.cameraaccess")" >> performance_log.txt
+  sleep 1
+done
+```
+
+During the stream processing phase, CPU cores (one core needed) utilization increases due to streaming operations and motion detection execution. Runtime analysis did not show critical CPU spikes.
+
+Once the stream is stopped, CPU usage drops significantly because streaming and motion detector execution are no longer active.
 
 <p align="center">
-  <img src="sample/metrics/cpu.png" width="60%" alt="CPU Usage" />
+  <img src="sample/metrics/cpu_usage_timeline.png" width="70%" alt="CPU Usage" />
 </p>
+
+Memory usage shows several spikes during the streaming phase, but allocations remain controlled and stable. Resource stabilization is clearly visible after the stream stopping phase.
+
+<p align="center">
+  <img src="sample/metrics/memory_usage_timeline.png" width="70%" alt="Memory Usage" />
+</p>
+
+Memory allocation metrics were also collected using the Android Studio Profiler during activation of the stream detection feature.
+
+Since the model is eagerly loaded into memory during startup, the memory graph shows only a minimal increase during inference execution. The profiler graphs also help identify which components are responsible for memory allocation.
 
 <p align="center">
   <img src="sample/metrics/memory.png" width="70%" alt="Memory Usage" />
 </p>
+
+Additional analysis with Android Studio Profiler did not reveal critical thread blocking or abnormal sleeping states.
 
 
 
