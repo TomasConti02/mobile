@@ -36,6 +36,7 @@ class MotionDetector(
         Imgproc.resize(currMat, currMat, Size(160.0, 120.0)) //reduce the size, trade off, less cpu (less pixel)
         Imgproc.cvtColor(currMat, grayMat, Imgproc.COLOR_RGBA2GRAY) // bring everything to gray (even less pixel)
         var isMoving = false
+
         prevGray?.let { prev -> //comparison between the current fream (grayMat) and the prevGray frame (prev)
             Core.absdiff(prev, grayMat, diffMat) //diff -> stable pixels became 0(black) others not black
             //blur is a denoise filter and create bigger areas

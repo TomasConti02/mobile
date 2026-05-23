@@ -1,12 +1,14 @@
 # Camera Access App
 
+>IMPORTANT README ALSO INTO THE ./YOLO DIR OF THE PROJECT
+
 A custom Android application demonstrating integration between the Meta Wearables Device Access Toolkit and mobile Computer Vision models.
 
 The app streams video frames from Meta AI glasses (or a mock device), captures photos, and manages connection states. It also includes a computer vision pipeline connected to the video stream to analyze the scene and trigger an embedded model.
 
 A pre-trained YOLO model performs object detection during stable scenes.
 
-The application is based on the open-source [meta-wearables-dat-android](https://github.com/facebook/meta-wearables-dat-android?utm_source=chatgpt.com) codebase.
+The application is based on the open-source [meta-wearables-dat-android](https://github.com/facebook/meta-wearables-dat-android) codebase.
 
 The YOLO model is pre-trained on the COCO dataset and can detect 80 classes. Model weights and metadata are stored in the app/src/main/assets directory. The model can also be fine-tuned or trained from scratch.
 
