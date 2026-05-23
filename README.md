@@ -24,7 +24,7 @@ Something new:
 - Streaming scene stabilization aware [ plug in ]
 - YOLO obejct detection [ plug in ]
 
-YOLO tested on car class domanin because easy to do:
+YOLO tested on car class domain because easy to do:
 <p align="center">
   <img src="sample/video_samples/demo_short.gif" width="30%" alt="Application Demo"/>
 </p>
@@ -47,17 +47,6 @@ To integrate the plugins, the following files were modified:
 All plugin details are described in the `README.md` file inside the `/yolo` directory.
 ## Testing, Metrics and Upload
 
-Check whether an Android device is connected via USB using:
-
-```bash id="m9jv6p"
-adb devices -l
-```
-Build and install the APK on the connected device with:
-
-```bash id="b6c1tk"
-./gradlew clean installDebug
-```
-
 Testing was performed on a Samsung device (`SM_A566B`).
 
 Convert a standard mobile camera video into a mock device-compatible format for testing purposes.
@@ -71,6 +60,17 @@ Upload the generated sample to the mobile device for testing and lookup operatio
 
 ```bash id="l2v8nd"
 adb push test_mobility2.mov /sdcard/Download/
+```
+
+Check whether an Android device is connected via USB using:
+
+```bash id="m9jv6p"
+adb devices -l
+```
+Build and install the APK on the connected device with:
+
+```bash id="b6c1tk"
+./gradlew clean installDebug
 ```
 
 
@@ -87,11 +87,20 @@ During the stream processing phase, CPU cores (one core needed) utilization incr
 
 Once the stream is stopped, CPU usage drops significantly because streaming and motion detector execution are no longer active.
 
+Monitoring of the CPU core utilization for the modified application with `MotionDetector.kt` enabled.
+
 <p align="center">
-  <img src="sample/metrics/cpu_usage_timeline.png" width="70%" alt="CPU Usage" />
+  <img src="sample/metrics/cpu_usage_timeline2.png" width="70%" alt="CPU Usage" />
 </p>
 
-Memory usage shows several spikes during the streaming phase, but allocations remain controlled and stable. Resource stabilization is clearly visible after the stream stopping phase.
+Monitoring of the original application process without the `MotionDetector.kt` component.
+
+<p align="center">
+  <img src="sample/metrics/cpu_usage_timeline.png" width="70%" alt="CPU Usage Application without MotionDetector" />
+</p>
+
+The comparison shows that the `MotionDetector.kt` computer vision component does not significantly increase CPU core utilization. The solution remains stable and maintains good runtime performance during stream processing.
+
 
 <p align="center">
   <img src="sample/metrics/memory_usage_timeline.png" width="70%" alt="Memory Usage" />
