@@ -57,6 +57,11 @@ A testing sample is already available in the `/sample` directory of the project.
 ffmpeg -i test3.mp4 -c:v libx265 -c:a aac -tag:v hvc1 -vf "scale=540:960" test_mobility2.mov
 ```
 
+Clone repo:
+```bash
+git clone https://github.com/TomasConti02/mobile.git
+```
+
 Move to the mobile project dir:
 ```bash
 cd ./mobile
