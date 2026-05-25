@@ -62,6 +62,12 @@ Upload the generated sample to the mobile device for testing and lookup operatio
 ```bash id="l2v8nd"
 adb push test_mobility2.mov /sdcard/Download/
 ```
+Create the right local.properties file:
+```bash id="l2v8nd"
+# create the right 'local.properties' file 
+sdk.dir=/PERSONAL_PATH/ANDROID/SDK
+github_token=GITHUB_ACCESS_TOKEN_FOR_WEARABLE
+```
 
 Check whether an Android device is connected via USB using:
 
