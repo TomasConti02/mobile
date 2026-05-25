@@ -45,7 +45,7 @@ To integrate the plugins, the following files were modified:
 * `/ui/StreamScreen`
 
 All plugin details are described in the `README.md` file inside the `/yolo` directory.
-
+The detected images are stored into the local mobile device file system. In the future this behaviour have to be replace with a Rest call to the 5G inference model.
 ## Testing, Metrics and Upload
 
 Testing was performed on a Samsung device (`SM_A566B`).

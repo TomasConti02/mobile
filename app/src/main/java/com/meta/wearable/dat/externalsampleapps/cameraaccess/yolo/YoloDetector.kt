@@ -303,6 +303,8 @@ class YoloDetector(private val context: Context, modelFilename: String = "yolov8
         return fileChannel.map(FileChannel.MapMode.READ_ONLY, fileDescriptor.startOffset, fileDescriptor.declaredLength)
     }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////// cropped images are saved into the mobile file system ///////////////////////////////////////////////////////////////
+///////////////// in the future this part have to be replace with the rest call to the inference model /////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     private fun saveCrop(fullBitmap: Bitmap, detection: Detection) {
@@ -324,12 +326,7 @@ class YoloDetector(private val context: Context, modelFilename: String = "yolov8
             croppedBitmap?.recycle()
         }
     }
-
-
-
-
 }
-////////////////////////////////////////////////////////////////////////////////////
 fun saveDetectionToDownloads(context: Context, bitmap: Bitmap, className: String) {
     /*
     val label = when (className) {
