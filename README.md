@@ -57,11 +57,16 @@ A testing sample is already available in the `/sample` directory of the project.
 ffmpeg -i test3.mp4 -c:v libx265 -c:a aac -tag:v hvc1 -vf "scale=540:960" test_mobility2.mov
 ```
 
-Upload the generated sample to the mobile device for testing and lookup operations:
+Move to the mobile project dir:
+```bash
+cd ./mobile
+```
+If needed, upload the generated sample to the mobile device for testing:
 
 ```bash id="l2v8nd"
-adb push test_mobility2.mov /sdcard/Download/
+adb push ./sample/video_samples/test_mobility2.mov /sdcard/Download/
 ```
+
 Create the right local.properties file:
 ```bash id="l2v8nd"
 # create the right 'local.properties' file 
