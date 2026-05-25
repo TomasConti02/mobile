@@ -39,6 +39,7 @@ import kotlinx.coroutines.cancel
 ///https://docs.ultralytics.com/it/datasets/detect/coco/ //////dataset train
 // https://yolov8.com/
 // https://colab.research.google.com/github/roboflow-ai/notebooks/blob/main/notebooks/train-yolov8-object-detection-on-custom-dataset.ipynb#scrollTo=jbVjEtPAkz3j
+
 data class Detection(val classId: String, val confidence: Float, val boundingBox: RectF)
 class YoloDetector(private val context: Context, modelFilename: String = "yolov8n_float32.tflite") { //yolov8n_float32.tflite default model to load
     private val saveScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
