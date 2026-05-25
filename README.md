@@ -33,7 +33,7 @@ YOLO tested on car class domain because easy to do:
 
 The codebase is based on the *meta-wearables-dat-android* project, with additional plugins integrated.
 
-* The `/assets` directory contains models and metadata.
+* The `/assets` directory contains models weights and metadata.
 * The directory
   `app/src/main/java/com/meta/wearable/dat/externalsampleapps/cameraaccess/yolo`
   contains the streaming scene stabilization and YOLO inference code.
@@ -45,6 +45,7 @@ To integrate the plugins, the following files were modified:
 * `/ui/StreamScreen`
 
 All plugin details are described in the `README.md` file inside the `/yolo` directory.
+
 ## Testing, Metrics and Upload
 
 Testing was performed on a Samsung device (`SM_A566B`).
@@ -118,11 +119,11 @@ Since the model is eagerly loaded into memory during startup, the memory graph s
 
 ## /MainActivity
 
-Application entry point. The app uses a single activity running on the main/UI thread, since some libraries are not thread-safe and require direct UI access. No activity-switching intents are used.
+Application entry point. The app uses a single activity running on the main/UI thread, since graphics libraries are not thread-safe and require direct UI access. No activity-switching intents are used.
 
 `MainActivity` handles:
 * runtime permission checks
-* Meta AI intent validation
+* Meta AI access
 * eager model initialization
 
 The model is initialized at startup because loading weights into the mobile GPU is an I/O-intensive blocking operation.
@@ -131,7 +132,7 @@ The model is initialized at startup because loading weights into the mobile GPU 
 
 This component acts as the view model of the application and manages the embedding and execution flow of the computer vision model.
 
-The frame stream is filtered through a `MotionDetector` component, while the YOLO inference triggering logic is handled inside the `StreamViewModel`.
+The frame stream is filtered through a `MotionDetector.kt` component, while the YOLO inference triggering logic is handled inside the `StreamViewModel.kt`.
 
 Stopping the stream is a critical operation and is handled carefully to avoid buffering issues and race conditions. A frame channel is used to continuously overwrite and keep only the latest valid frame for monitoring and analysis. Once the monitor detects a stable scene, the YOLO inference process is launched.
 
@@ -144,5 +145,5 @@ The interface is dynamically updated through `@Composable` functions, following 
 
 UI = f(state)
 
-Additional components such as `streamViewModel.x.collectAsStateWithLifecycle` were added to observe and collect data from the `StreamViewModel` in a lifecycle-aware way.
+Additional components such as `streamViewModel.x.collectAsStateWithLifecycle` were added to observe and collect data from the `StreamViewModel.kt` in a lifecycle-aware way.
 

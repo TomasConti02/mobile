@@ -39,11 +39,12 @@ This design represents a trade-off between:
 * model accuracy
 * resource utilization
 
-Quantization reduces memory usage and improves execution speed, while the 32-bit model provides higher detection precision and accuracy. 
+Quantization reduces memory usage and improves execution speed even on cpu architecture, while the 32-bit model provides higher detection precision and accuracy. 
 
 Useful to convert the model in a quantization 8bit format:
 ```bash
 yolo export model=yolov8n.pt format=tflite int8
 ```
-Re-train-Tuning of the model?
+Re-train-Tuning of the model if needed
+
 [Google colab source code](https://colab.research.google.com/github/roboflow-ai/notebooks/blob/main/notebooks/train-yolov8-object-detection-on-custom-dataset.ipynb#scrollTo=jbVjEtPAkz3j)
