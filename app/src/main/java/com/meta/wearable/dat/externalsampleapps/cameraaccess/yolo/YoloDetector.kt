@@ -279,9 +279,8 @@ class YoloDetector(private val context: Context, modelFilename: String = "yolov8
         return interArea / (box1Area + box2Area - interArea)
     }
     fun close() {
-        Log.d("YoloDetector", "Inizio rilascio risorse dell'interprete")
+        Log.d("YoloDetector", "resource release")
         try {
-            // 1. Cancella i processi di salvataggio in corso
             saveScope.cancel()
             interpreter?.let {
                 it.close()
@@ -291,9 +290,9 @@ class YoloDetector(private val context: Context, modelFilename: String = "yolov8
                 it.close()
                 gpuDelegate = null
             }
-            Log.d("YoloDetector", "Risorse rilasciate con successo")
+            Log.d("YoloDetector", "ok resource release")
         } catch (e: Exception) {
-            Log.e("YoloDetector", "Errore durante la chiusura: ${e.message}")
+            Log.e("YoloDetector", "ERROR resource release: ${e.message}")
         }
     }
     //from the documentation, open and load the model
@@ -305,6 +304,7 @@ class YoloDetector(private val context: Context, modelFilename: String = "yolov8
     }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
     private fun saveCrop(fullBitmap: Bitmap, detection: Detection) {
         var croppedBitmap: Bitmap? = null
         try {
@@ -331,40 +331,38 @@ class YoloDetector(private val context: Context, modelFilename: String = "yolov8
 }
 ////////////////////////////////////////////////////////////////////////////////////
 fun saveDetectionToDownloads(context: Context, bitmap: Bitmap, className: String) {
+    /*
     val label = when (className) {
-        "2" -> "CAR"  // Nota: nei log precedenti l'ID dell'auto era 2
+        "2" -> "CAR"
         "5" -> "BUS"
         else -> className
-    }
+    }*/
+    val label=className
     val filename = "Detection_${label}_${System.currentTimeMillis()}.jpg"
     val contentValues = ContentValues().apply {
         put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
         put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
-        // Specifichiamo la sottocartella in Downloads
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/YoloDetections")
             put(MediaStore.MediaColumns.IS_PENDING, 1)
         }
     }
-
     val resolver = context.contentResolver
     val uri: Uri? = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
-
     uri?.let {
         try {
             val outputStream: OutputStream? = resolver.openOutputStream(it)
             outputStream?.use { stream ->
                 bitmap.compress(Bitmap.CompressFormat.JPEG, 90, stream)
             }
-
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 contentValues.clear()
                 contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
                 resolver.update(it, contentValues, null, null)
             }
-            Log.d("YoloDetector", "Immagine salvata in Downloads: $filename")
+            Log.d("YoloDetector", "OK Downloads: $filename")
         } catch (e: Exception) {
-            Log.e("YoloDetector", "Errore durante il salvataggio", e)
+            Log.e("YoloDetector", "ERROR Downloads", e)
         }
     }
 }
