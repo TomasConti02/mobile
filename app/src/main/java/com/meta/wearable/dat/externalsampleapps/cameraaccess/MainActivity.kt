@@ -57,8 +57,11 @@ class MainActivity : ComponentActivity() {
     private val TAG = "MAIN_"
   val viewModel: WearablesViewModel by viewModels() //declare the WearablesViewModel with -> by -> jetpack-property delegation
   private val permissionCheckLauncher = registerForActivityResult(RequestMultiplePermissions()) { permissionsResult -> //check about the basic permissions
+
         viewModel.onPermissionsResult(permissionsResult) {  //viewModel exec a double permission check
+
           Wearables.initialize(this) // Initialize the SDK entry point
+
         }
       }
   private var permissionContinuation: CancellableContinuation<PermissionStatus>? = null
@@ -84,6 +87,7 @@ class MainActivity : ComponentActivity() {
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()//view option, cover all the screen
     setContent {  CameraAccessScaffold(viewModel = viewModel, onRequestWearablesPermission = ::requestWearablesPermission,) } //set he UI Scaffold passing the WearablesViewModel
+
     //launch the model gpu allocation. Eager initialization because take time load the model on mobile gpu
     lifecycleScope.launch {
         YoloProvider.get(applicationContext)

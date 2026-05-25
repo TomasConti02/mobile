@@ -73,6 +73,7 @@ class YoloDetector(private val context: Context, modelFilename: String = "yolov8
             loadMetadata("metadata_yolov8n_int8.yaml") //metadata about inference classes are the same for both the same
             var interpreterOptions = Interpreter.Options()
             try {
+                //throw IllegalStateException("Test fall back 1")
                 val modelBuffer = loadModelFile(context, modelFilename) // load the model weights (from documentation)
                 val delegateOptions = GpuDelegate.Options().apply {
                     setPrecisionLossAllowed(true) //speed up but less precision
@@ -85,6 +86,7 @@ class YoloDetector(private val context: Context, modelFilename: String = "yolov8
                     )
                 }
                 gpuDelegate = GpuDelegate(delegateOptions)
+                //throw IllegalStateException("Test fall back 2")
                 interpreterOptions = Interpreter.Options().apply {
                     addDelegate(gpuDelegate)
                     //setNumThreads(1)
@@ -92,6 +94,7 @@ class YoloDetector(private val context: Context, modelFilename: String = "yolov8
                 interpreter = Interpreter(modelBuffer, interpreterOptions) //create the interpreter with model and options
                 Log.d("YoloDetector", "Using GPU acceleration")
             } catch (e: Exception) { //if some error with gpu start with cpu and multi thread
+
                 val fallbackModel = "yolov8n_int8.tflite" //smaller version, less precise but faster
                 val modelBuffer = loadModelFile(context, fallbackModel)
                 Log.w("YoloDetector", "GPU failed → CPU fallback: ${e.message}")
@@ -103,6 +106,7 @@ class YoloDetector(private val context: Context, modelFilename: String = "yolov8
                     )
                 }
                 interpreter = Interpreter(modelBuffer, interpreterOptions)
+
             }
             interpreter?.let { tfInterpreter ->
                 tfInterpreter.allocateTensors()

@@ -4,7 +4,7 @@ import android.content.Context
 import kotlinx.coroutines.*
 /*
 Try to implement the patter singleton factory, only one instance of the yolo detector into the heap
-of the process. the load operation is very async and slow
+of the process. the load operation is blocking and synch, better asynch
 */
 object YoloProvider {
     @Volatile
