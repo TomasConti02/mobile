@@ -13,13 +13,20 @@ if the scene is moving, still or stable after a stableTimeMs of still state.
 */
 class MotionDetector(
     private val motionRatioThreshold: Double = 0.06, //0.025
-    private val historySize: Int = 6,
+    private val historySize: Int = 6, //history compose by 6 movement check operations
     private val warmupFrames: Int = 10,
     private val stableTimeMs: Long = 5_000L
 ) {
     enum class State { MOVING, STILL, STABLE }
     private var prevGray: Mat? = null
-    private val history = ArrayDeque<Boolean>()
+
+    // ArrayDeque provides O(1) time complexity for
+    // push/pop operations at both ends (head and tail) via a circular dynamic array data structure
+    // but also linked list
+    // BUT linked list increase the CACHE MISS rate reducing the real time performance, memory is dynamic and store into the HEAP
+    // An array store data in memory sequence allowing better CACHE HIT rate and stable into the STACK
+    private val history = ArrayDeque<Boolean>() // true -> movement into the frame | false -> no movement into the frame
+
     private val currMat = Mat()
     private val grayMat = Mat()
     private val diffMat = Mat()
@@ -61,8 +68,8 @@ class MotionDetector(
 
             if (motionRatio > motionRatioThreshold * 10) { //moving only if there is a big change
                 Log.d("MotionDetector", "Massive motion detected - Resetting history to MOVING.")
-                history.clear()
-                repeat(historySize) { history.add(true) }
+                history.clear() //clear the history
+                repeat(historySize) { history.add(true) } //instable state injection
             }
         }
         frameCount++
@@ -101,26 +108,30 @@ class MotionDetector(
     }
 
     private fun updateState(): State { //manage the logic behind the state changes
+        //define the change state base on how many true/false are into the history at each frame
         val movingCount = history.count { it }
+
         val newBaseState = when (currentState) {
-            State.MOVING ->
-                if (movingCount <= 2) State.STILL else State.MOVING
-            State.STILL, State.STABLE ->
-                if (movingCount >= 4) State.MOVING else State.STILL
+            State.MOVING -> //if current state is moving
+                if (movingCount <= 2) State.STILL else State.MOVING //set Still if at least 4 on 6 are not moving frames
+            State.STILL, State.STABLE -> //if current state is still or stable
+                if (movingCount >= 4) State.MOVING else State.STILL //reset to moving if 4 or more frame are beck to moving
         }
-        if (newBaseState == State.STILL) {
-            if (currentState != State.STILL && currentState != State.STABLE) {
-                stillStartTime = System.currentTimeMillis()
+
+        if (newBaseState == State.STILL) { //bring the still state into a stable state
+            if (currentState != State.STILL && currentState != State.STABLE) { //the window change the state from moving to still
+                stillStartTime = System.currentTimeMillis() //start a timer
             }
             val elapsed = System.currentTimeMillis() - stillStartTime
-            currentState = if (elapsed >= stableTimeMs) {
-                State.STABLE
+            currentState = if (elapsed >= stableTimeMs) { //check the still time
+                //STABLE if the history window have >= 4 still frame on 6 and waited for stableTimeMs
+                State.STABLE //set to stable
             } else {
                 State.STILL
             }
         } else {
-            stillStartTime = 0L
-            currentState = State.MOVING
+            stillStartTime = 0L //reset
+            currentState = State.MOVING //reset
         }
         return currentState
     }

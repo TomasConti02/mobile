@@ -29,7 +29,9 @@ object YoloProvider { //Singleton
             detector
         }
 
-        return initJob!!
+        //return initJob!!
+        //return initJob
+        return initJob ?: error("ERROR in YoloProvider func -> initAsync")
     }
     //need a asynch loading operation because don't want to block the main/ui thread
     suspend fun get(context: Context): YoloDetector { //corutine suspend itself until the resource is loaded
