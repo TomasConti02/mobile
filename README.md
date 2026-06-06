@@ -1,6 +1,7 @@
 # Camera Access App
 
 >IMPORTANT README ALSO INTO THE ./YOLO DIR OF THE PROJECT
+>[ IMPORTANT README ALSO INTO THE ./YOLO DIR OF THE PROJECT ](./mobile/tree/main/app/src/main/java/com/meta/wearable/dat/externalsampleapps/cameraaccess/yolo/README.md)
 
 A custom Android application demonstrating integration between the Meta Wearables Device Access Toolkit and mobile Computer Vision models.
 
